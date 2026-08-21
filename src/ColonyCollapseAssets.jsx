@@ -46,12 +46,12 @@ const COLOR_SCHEMES = {
   },
   Yellow: {
     name: 'Yellow',
-    hexCode: '#EAB308',
-    darkHex: '#A16207',
+    hexCode: '#FACC15',
+    darkHex: '#CA8A04',
     lightBg: '#FEFCE8',
-    accentBorder: '#EAB308',
-    badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
-    bannerGradient: 'linear-gradient(135deg, #D97706 0%, #854D0E 100%)',
+    accentBorder: '#FACC15',
+    badgeBg: 'bg-yellow-100 text-yellow-900 border-yellow-300',
+    bannerGradient: 'linear-gradient(135deg, #FACC15 0%, #EAB308 100%)',
     tagline: 'Honey & Energy'
   },
   Orange: {
@@ -61,7 +61,7 @@ const COLOR_SCHEMES = {
     lightBg: '#FFF7ED',
     accentBorder: '#F97316',
     badgeBg: 'bg-orange-100 text-orange-900 border-orange-300',
-    bannerGradient: 'linear-gradient(135deg, #EA580C 0%, #9A3412 100%)',
+    bannerGradient: 'linear-gradient(135deg, #F97316 0%, #C2410C 100%)',
     tagline: 'Unity & Mobilization'
   }
 };
@@ -70,147 +70,147 @@ const COLOR_SCHEMES = {
 const CARD_TEMPLATES = [
   {
     id: 1,
-    title: "District Tolls",
+    title: "Comb Inversion",
     type: "Ongoing",
-    effect: "Other players must pay you 1 to build in districts you control.",
+    effect: "PLACE: You may flip a tile before placing it.",
     colors: ["Red", "Green"],
-    flavor: "Every flight through democratic airspace carries a small fee for public maintenance."
+    flavor: "Flipping the wax cells reveals alternative geometric pathways for the colony."
   },
   {
     id: 2,
-    title: "Comb Inversion",
+    title: "Pollen Preservation",
     type: "Ongoing",
-    effect: "You may flip a tile you're holding before building it.",
+    effect: "FLIP: You may choose to not flip the tile.",
     colors: ["Red", "Blue"],
-    flavor: "Flipping the wax cells opens unforeseen architectural possibilities."
+    flavor: "Maintaining the current orientation keeps delicate honey reserves intact."
   },
   {
     id: 3,
-    title: "Issue Summit",
+    title: "Market Overhaul",
     type: "Immediate",
-    effect: "Gain money equal to your highest position on an issue track.",
+    effect: "Flip all tiles of one color in the market.",
     colors: ["Red", "Purple"],
-    flavor: "Leading the debate on pollen allocation pays immediate dividends."
+    flavor: "A sudden gust through the trading comb resets available faction resources."
   },
   {
     id: 4,
-    title: "Political Lobbying",
+    title: "Priority Flight",
     type: "Immediate",
-    effect: "Spend X money to go up the turn order track X steps.",
+    effect: "Move your turn order marker one step up from the first player.",
     colors: ["Red", "Yellow"],
-    flavor: "Honey smooths the gears of legislative precedence."
+    flavor: "Early foragers catch the sweetest blooms before the general assembly convenes."
   },
   {
     id: 5,
     title: "Swarm Rebalancing",
     type: "Immediate",
-    effect: "Move down 1 track move up 2 other tracks.",
+    effect: "Move down 1 issue track to advance 2 others.",
     colors: ["Red", "Orange"],
-    flavor: "A strategic compromise on one front doubles your momentum elsewhere."
+    flavor: "A tactical concession on one front doubles public support elsewhere."
   },
   {
     id: 6,
     title: "Underdog Surge",
     type: "Immediate",
-    effect: "Move one on each track where you are last (not tied).",
+    effect: "Move up on each of your lowest issues.",
     colors: ["Red", "Green"],
-    flavor: "The trailing foragers rally together to claim equal representation."
+    flavor: "Trailing factions rally grassroots support across overlooked policy initiatives."
   },
   {
     id: 7,
     title: "Worker Overtime",
     type: "Ongoing",
-    effect: "You may pay 2 to boost one action a round by 1 strength.",
+    effect: "Once per round you may gain +1 strength on an action.",
     colors: ["Green", "Blue"],
-    flavor: "Extra shifts at the nectar press produce unprecedented yields."
+    flavor: "Extra shifts at the nectar vats produce unrivaled democratic momentum."
   },
   {
     id: 8,
-    title: "Pollen Subsidies",
-    type: "Ongoing",
-    effect: "When you play a card you may take a tile instead of going up a track.",
+    title: "Comb Trade",
+    type: "Immediate",
+    effect: "Swap two tiles in the market.",
     colors: ["Green", "Purple"],
-    flavor: "Direct grants of building material take priority over policy paperwork."
+    flavor: "Negotiating supply swaps creates optimal blueprints for expansion."
   },
   {
     id: 9,
-    title: "Hive Tax Dividend",
-    type: "Ongoing",
-    effect: "During end of round scoring get 1 money for each district you control.",
+    title: "Ballot Lock",
+    type: "Immediate",
+    effect: "Lock a vote.",
     colors: ["Green", "Yellow"],
-    flavor: "Territorial stewardship yields a steady stream of public honey."
+    flavor: "Sealing the voting chamber solidifies the current democratic consensus."
   },
   {
     id: 10,
-    title: "Campaign Filibuster",
+    title: "Echoing Decree",
     type: "Ongoing",
-    effect: "You may forfeit an action to go up an issue track of your choice.",
+    effect: "When you play a card with an Immediate effect, resolve it again, then discard this card.",
     colors: ["Green", "Orange"],
-    flavor: "Commanding the microphone at the assembly sways neutral delegates."
+    flavor: "A powerful proclamation reverberates throughout the entire hive structure."
   },
   {
     id: 11,
-    title: "Direct Democracy",
+    title: "District Sovereignty",
     type: "Ongoing",
-    effect: "Instead of choosing your actions at the start of the round, you play them on your turn.",
+    effect: "Other players may not place tiles in districts you are winning.",
     colors: ["Blue", "Purple"],
-    flavor: "Real-time voting leaves rigid central planners far behind."
+    flavor: "Clear electoral majorities grant total jurisdiction over district borders."
   },
   {
     id: 12,
-    title: "Royal Stash",
+    title: "Royal Mandate",
     type: "Immediate",
-    effect: "Gain 3 random resources.",
+    effect: "Draw and play a card.",
     colors: ["Blue", "Yellow"],
-    flavor: "Unlocking the old queen's reserve chest releases vital supplies."
+    flavor: "Swift legislative motion bypasses the standard parliamentary queue."
   },
   {
     id: 13,
-    title: "Tile Recycling",
+    title: "Grassroots Leverage",
     type: "Ongoing",
-    effect: "You may discard a tile to perform the associated action.",
+    effect: "You win ties with players above you on the turn order track.",
     colors: ["Blue", "Orange"],
-    flavor: "Repurposing old wax comb triggers immediate worker productivity."
+    flavor: "When votes are equal, the lower-ranking reformers hold the deciding weight."
   },
   {
     id: 14,
-    title: "Grassroots Campaign",
+    title: "Policy Pivot",
     type: "Ongoing",
-    effect: "You may discard a tile to go up the issue track of that color.",
+    effect: "PLAY CARD: Instead of gaining the effect, you may discard the card to move up the issue another time.",
     colors: ["Blue", "Purple"],
-    flavor: "Converting physical comb assets into lasting political influence."
+    flavor: "Converting written bills directly into political influence and momentum."
   },
   {
     id: 15,
-    title: "Forager Discovery",
+    title: "Comeback Rally",
     type: "Immediate",
-    effect: "Gain a random tile.",
+    effect: "Advance twice on an issue where you are last (no ties).",
     colors: ["Purple", "Yellow"],
-    flavor: "Scouts return from beyond the meadow bearing blueprints for expansion."
+    flavor: "A passionate speech from the back benches surges up the voting track."
   },
   {
     id: 16,
-    title: "Comb Construction",
+    title: "Decisive Overtake",
     type: "Ongoing",
-    effect: "When you play a tile, you may move 1 space on any track.",
+    effect: "Any time you reach a space on the issue track with a pawn, you become first on the issue.",
     colors: ["Purple", "Orange"],
-    flavor: "Building new infrastructure builds goodwill across every faction."
+    flavor: "Catching up to a rival delegate grants immediate debate leadership."
   },
   {
     id: 17,
-    title: "District Quarantine",
-    type: "Immediate",
-    effect: "Lock up to two districts.",
+    title: "Flight Momentum",
+    type: "Ongoing",
+    effect: "Any time you overtake someone in turn order, go up another step.",
     colors: ["Yellow", "Orange"],
-    flavor: "Sealing border hexes protects municipal sovereignty during disputes."
+    flavor: "Breaking ahead in the draft creates an updraft that launches you further forward."
   },
   {
     id: 18,
     title: "Market Annexation",
     type: "Immediate",
-    effect: "Add a tile from the market to a district for free. You do not gain issue track or tile action.",
+    effect: "Place a tile from the market onto the board.",
     colors: ["Yellow", "Orange"],
-    flavor: "Acquiring municipal land directly from the open market bypassing standard bureaucratic protocol."
+    flavor: "Directly acquiring community tiles into active hive construction."
   }
 ];
 
