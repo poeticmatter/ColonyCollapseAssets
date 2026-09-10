@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Download, Printer, LayoutGrid, Filter, FileImage, ArrowRightLeft, Flower, Gem, Flame, Leaf, Sun, Droplet } from 'lucide-react';
+import { Download, Printer, LayoutGrid, Filter, FileImage, ArrowRightLeft, Flower, Gem, Flame, Leaf, Sun, Droplet, Hexagon } from 'lucide-react';
 import { toPng } from 'html-to-image';
+import ColonyCollapseHexTiles from './ColonyCollapseHexTiles.jsx';
 
 // --- 1. THE 6 OFFICIAL GAME COLORS ---
 const LITE_COLOR_HEX = {
@@ -192,6 +193,7 @@ const CleanCardSVG = ({ colorA, colorB, width = 280, height = 392, className = '
 
 // --- 5. MAIN COLONY COLLAPSE LITE ASSETS PAGE COMPONENT ---
 export default function ColonyCollapseLiteAssets() {
+  const [activeAsset, setActiveAsset] = useState('hex-tiles'); // 'hex-tiles' | 'cards'
   const [viewMode, setViewMode] = useState('gallery'); // 'gallery', 'print', 'tts', 'screentop'
   const [selectedColor, setSelectedColor] = useState('All');
   const [globalSide, setGlobalSide] = useState('interactive'); // 'interactive', 'fronts', 'backs'
@@ -274,13 +276,19 @@ export default function ColonyCollapseLiteAssets() {
               <span className="bg-gradient-to-r from-pink-500 to-purple-500 text-white font-black text-xs px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
                 Colony Collapse Lite
               </span>
-              <span className="text-xs text-slate-400 font-medium">15 Double-Sided Cards • Color-Blind Accessible</span>
+              <span className="text-xs text-slate-400 font-medium">
+                {activeAsset === 'hex-tiles'
+                  ? '30 Double-Sided Hexagon Tiles • 3-Line & 2-Line Partitions'
+                  : '15 Double-Sided Cards • Color-Blind Accessible'}
+              </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2">
-              🌸 Colony Collapse Lite — Color & Symbol Cards
+              {activeAsset === 'hex-tiles' ? '⬡ Colony Collapse Lite — Hexagon Tiles' : '🌸 Colony Collapse Lite — Color & Symbol Cards'}
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 max-w-2xl">
-              Double-sided color cards with Lucide color-blind symbols in the card center and on the corner page leaf. 15 unique pairs. Exports for TTS & Screentop.co.
+              {activeAsset === 'hex-tiles'
+                ? 'Double-sided hexagon tiles in the 6 official colors with central circles revealing the reverse side color. 3 lines (three equal thirds) or 2 lines (one third & two thirds).'
+                : 'Double-sided color cards with Lucide color-blind symbols in the card center and on the corner page leaf. 15 unique pairs. Exports for TTS & Screentop.co.'}
             </p>
           </div>
 
@@ -289,7 +297,9 @@ export default function ColonyCollapseLiteAssets() {
             {Object.keys(LITE_COLOR_HEX).map((colorName) => (
               <div key={colorName} className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-200 shadow-sm">
                 <span className="w-3.5 h-3.5 rounded-full inline-block shadow-sm" style={{ backgroundColor: LITE_COLOR_HEX[colorName] }}></span>
-                <ColorSymbol color={colorName} size={15} strokeWidth={2.4} colorHex="#FFFFFF" />
+                {activeAsset === 'cards' && (
+                  <ColorSymbol color={colorName} size={15} strokeWidth={2.4} colorHex="#FFFFFF" />
+                )}
                 {colorName}
               </div>
             ))}
@@ -299,6 +309,38 @@ export default function ColonyCollapseLiteAssets() {
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-8 pt-6 space-y-6">
+        {/* Asset Switcher Bar */}
+        <div className="flex items-center justify-between bg-slate-900/90 p-2 rounded-xl border border-slate-800 shadow-md no-print">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-400 pl-2">Asset:</span>
+            <button
+              onClick={() => setActiveAsset('hex-tiles')}
+              className={`px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+                activeAsset === 'hex-tiles'
+                  ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg ring-1 ring-pink-400/50'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <Hexagon className="w-4 h-4 text-pink-400" /> ⬡ Hexagon Tiles (30 Tiles)
+            </button>
+            <button
+              onClick={() => setActiveAsset('cards')}
+              className={`px-4 py-2 rounded-lg text-xs font-black flex items-center gap-2 transition cursor-pointer ${
+                activeAsset === 'cards'
+                  ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-lg ring-1 ring-pink-400/50'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-800'
+              }`}
+            >
+              <FileImage className="w-4 h-4 text-purple-400" /> 🎴 Color Cards (15 Cards)
+            </button>
+          </div>
+        </div>
+
+        {/* Dynamic Asset View */}
+        {activeAsset === 'hex-tiles' ? (
+          <ColonyCollapseHexTiles />
+        ) : (
+          <div className="space-y-6">
         {/* Controls Bar */}
         <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center justify-between bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-xl no-print">
           {/* View Mode Tabs */}
@@ -654,6 +696,8 @@ export default function ColonyCollapseLiteAssets() {
               </div>
             </div>
           </section>
+        )}
+          </div>
         )}
       </main>
     </div>
