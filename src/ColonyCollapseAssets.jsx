@@ -10,6 +10,7 @@ import {
   CC_COLOR_TAGLINE
 } from './colonyCollapsePalette.js';
 import IssueSymbol from './ColonyCollapseIssueSymbol.jsx';
+import BeeMark from './ColonyCollapseBeeMark.jsx';
 
 // --- COLOR PALETTE & SCHEMES ---
 // Chalk issue colors are light, so every scheme carries an ink tone for text
@@ -304,10 +305,10 @@ const CardBackGraphicSVG = () => (
       <polygon points="0,-50 43,-25 43,25 0,50 -43,25 -43,-25" fill="#1E293B" stroke="#F59E0B" strokeWidth="2" />
       <circle cx="0" cy="0" r="32" fill="#0F172A" stroke="#D97706" strokeWidth="1.5" />
 
-      {/* Bee Icon */}
-      <path d="M -15 -5 Q 0 -20 15 -5 Q 10 10 0 15 Q -10 10 -15 -5 Z" fill="#F59E0B" />
-      <line x1="-12" y1="-2" x2="12" y2="-2" stroke="#0F172A" strokeWidth="2.5" />
-      <line x1="-10" y1="4" x2="10" y2="4" stroke="#0F172A" strokeWidth="2.5" />
+      {/* Bee Icon - the same mark used on the board hub and every player disc */}
+      <g transform="translate(-24, -25)">
+        <BeeMark size={48} bodyColor="#F59E0B" stripeColor="#0F172A" />
+      </g>
 
       <text x="0" y="70" textAnchor="middle" fill="#F59E0B" fontSize="11" fontWeight="bold" letterSpacing="2">
         COLONY

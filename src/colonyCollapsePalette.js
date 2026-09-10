@@ -52,3 +52,34 @@ export const CC_COLOR_TAGLINE = {
   Seafoam: 'Water & Health',
   Mauve: 'Bloom & Pollination'
 };
+
+// The player colors: vivid and saturated where the issues are chalky, so a
+// player's disc never reads as "just another issue token" sitting on a track.
+export const CC_PLAYER_COLOR_HEX = {
+  Red: '#E11D2E',
+  Yellow: '#FFC400',
+  Green: '#10B95A',
+  Blue: '#1073E6',
+  Violet: '#7B2FF7'
+};
+
+export const CC_PLAYER_COLOR_DEEP_HEX = {
+  Red: '#8C0F1C',
+  Yellow: '#A66E00',
+  Green: '#0B7A3C',
+  Blue: '#0A4B96',
+  Violet: '#511C9E'
+};
+
+// Yellow is too light for a white glyph; every other player color takes white.
+export const CC_PLAYER_COLOR_INK = {
+  Red: '#FFFFFF',
+  Yellow: '#4A3200',
+  Green: '#FFFFFF',
+  Blue: '#FFFFFF',
+  Violet: '#FFFFFF'
+};
+
+// The four colors in active use. Violet is reserved for a future 5th player.
+export const CC_PLAYER_COLOR_ORDER = ['Red', 'Violet', 'Green', 'Blue'];
+export const CC_PLAYER_COLOR_RESERVED = 'Yellow';
