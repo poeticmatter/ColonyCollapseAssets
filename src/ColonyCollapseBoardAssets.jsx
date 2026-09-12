@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import {
   Download, Printer, LayoutGrid, Filter, FileImage, Package, Grid3x3, Hexagon, Layers,
   Megaphone, Hammer, Handshake, Radio, Newspaper, GraduationCap, RotateCcw, ArrowRight,
-  Edit3, Copy, TrendingUp, Redo, Circle, Triangle
+  Edit3, Copy, TrendingUp, Redo, Circle, Triangle, Compass, Eye
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import JSZip from 'jszip';
@@ -458,22 +458,15 @@ const BoardSVG = ({
   </svg>
 );
 
-// --- 6B. DISPLAY BOARD -------------------------------------------------
-// The 6-hex tile display referenced by the Address/Develop action icons: six
-// empty hex slots in a ring, six pawn-docking spots in the gaps between them
-// (the pawn moves junction to junction around this ring, same idea as the
-// board), and a small arrow off each hex pointing to the district it feeds -
-// kept modest and clear of the hex itself so a real tile in the slot never
-// covers it.
-// board), and a small color+icon badge on an inner ring, aligned to the same
-// angle as its hex, so which district each slot feeds is obvious from
-// position alone - no arrow needed, and the board stays compact.
+// --- 6B. DISPLAY BOARD & DIAL -----------------------------------------
+// The 6-hex tile display: six empty hex slots in a ring, six color badges
+// pointing to the matching districts, and a single central circular dial
+// with a rotating dial token that points to the active slot.
 const DISPLAY_HEX_R = 110;
 const DISPLAY_RING_R = 300;
-const DISPLAY_PAWN_RING_R = 210;
-const DISPLAY_PAWN_R = 38;
 const DISPLAY_BADGE_RING_R = 130;
 const DISPLAY_BADGE_R = 40;
+const DISPLAY_DIAL_R = 75;
 const DISPLAY_MARGIN = 30;
 const DISPLAY_BOARD_SIZE = (DISPLAY_RING_R + DISPLAY_HEX_R + DISPLAY_MARGIN) * 2;
 const DISPLAY_BOARD_CENTER = { x: DISPLAY_BOARD_SIZE / 2, y: DISPLAY_BOARD_SIZE / 2 };
@@ -481,16 +474,22 @@ const DISPLAY_BOARD_CENTER = { x: DISPLAY_BOARD_SIZE / 2, y: DISPLAY_BOARD_SIZE 
 const DISPLAY_POSITIONS = CC_COLOR_ORDER.map((color, idx) => {
   const angleDeg = -90 + 60 * idx;
   const angle = (angleDeg * Math.PI) / 180;
-  const pawnAngle = ((angleDeg + 30) * Math.PI) / 180;
   return {
     color,
+    angleDeg,
     hex: { x: DISPLAY_RING_R * Math.cos(angle), y: DISPLAY_RING_R * Math.sin(angle) },
-    pawn: { x: DISPLAY_PAWN_RING_R * Math.cos(pawnAngle), y: DISPLAY_PAWN_RING_R * Math.sin(pawnAngle) },
     badge: { x: DISPLAY_BADGE_RING_R * Math.cos(angle), y: DISPLAY_BADGE_RING_R * Math.sin(angle) }
   };
 });
 
-const DisplayBoardSVG = ({ className = '' }) => (
+export { default as DialTokenSVG } from './ColonyCollapseDialToken.jsx';
+import DialTokenSVG from './ColonyCollapseDialToken.jsx';
+
+export const DisplayBoardSVG = ({
+  showDialToken = false,
+  dialAngle = -90,
+  className = ''
+}) => (
   <svg
     viewBox={`0 0 ${DISPLAY_BOARD_SIZE} ${DISPLAY_BOARD_SIZE}`}
     width="100%"
@@ -503,11 +502,78 @@ const DisplayBoardSVG = ({ className = '' }) => (
         <stop offset="0%" stopColor="#1E293B" />
         <stop offset="100%" stopColor="#080D18" />
       </radialGradient>
+      <radialGradient id="cc-display-dial-recess" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stopColor="#131B2A" />
+        <stop offset="85%" stopColor="#0F172A" />
+        <stop offset="100%" stopColor="#090E17" />
+      </radialGradient>
     </defs>
 
     <rect x="0" y="0" width={DISPLAY_BOARD_SIZE} height={DISPLAY_BOARD_SIZE} fill="url(#cc-display-ground)" />
 
     <g transform={`translate(${DISPLAY_BOARD_CENTER.x}, ${DISPLAY_BOARD_CENTER.y})`}>
+      {/* 1. Subtle radial guide rays connecting center dial to the 6 slots */}
+      {DISPLAY_POSITIONS.map((pos) => {
+        const rad = (pos.angleDeg * Math.PI) / 180;
+        return (
+          <line
+            key={`dial-ray-${pos.color}`}
+            x1={DISPLAY_DIAL_R * Math.cos(rad)}
+            y1={DISPLAY_DIAL_R * Math.sin(rad)}
+            x2={(DISPLAY_BADGE_RING_R - DISPLAY_BADGE_R - 6) * Math.cos(rad)}
+            y2={(DISPLAY_BADGE_RING_R - DISPLAY_BADGE_R - 6) * Math.sin(rad)}
+            stroke="#334155"
+            strokeWidth="2.5"
+            strokeDasharray="4 4"
+          />
+        );
+      })}
+
+      {/* 2. Central dial circle socket */}
+      <g id="cc-display-dial-socket">
+        {/* Recessed circular bed */}
+        <circle
+          cx={0}
+          cy={0}
+          r={DISPLAY_DIAL_R}
+          fill="url(#cc-display-dial-recess)"
+          stroke="#334155"
+          strokeWidth="4"
+        />
+        {/* Concentric guide ring */}
+        <circle
+          cx={0}
+          cy={0}
+          r={DISPLAY_DIAL_R - 12}
+          fill="none"
+          stroke="#3E4C63"
+          strokeWidth="2"
+          strokeDasharray="6 5"
+        />
+        {/* 6 directional alignment notches pointing to the 6 color slots */}
+        {DISPLAY_POSITIONS.map((pos) => {
+          const rad = (pos.angleDeg * Math.PI) / 180;
+          const rIn = DISPLAY_DIAL_R - 20;
+          const rOut = DISPLAY_DIAL_R - 4;
+          return (
+            <line
+              key={`dial-notch-${pos.color}`}
+              x1={rIn * Math.cos(rad)}
+              y1={rIn * Math.sin(rad)}
+              x2={rOut * Math.cos(rad)}
+              y2={rOut * Math.sin(rad)}
+              stroke="#5C6578"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+          );
+        })}
+        {/* Central pivot mount */}
+        <circle cx={0} cy={0} r={14} fill="#0A0F1D" stroke="#5C6578" strokeWidth="2.5" />
+        <circle cx={0} cy={0} r={4.5} fill="#94A3B8" />
+      </g>
+
+      {/* 3. The 6 color badges */}
       {DISPLAY_POSITIONS.map((pos) => {
         const fillHex = CC_COLOR_HEX[pos.color];
         const deepHex = CC_COLOR_DEEP_HEX[pos.color];
@@ -523,19 +589,7 @@ const DisplayBoardSVG = ({ className = '' }) => (
         );
       })}
 
-      {DISPLAY_POSITIONS.map((pos) => (
-        <circle
-          key={`pawn-${pos.color}`}
-          cx={pos.pawn.x}
-          cy={pos.pawn.y}
-          r={DISPLAY_PAWN_R}
-          fill="#151E2E"
-          stroke="#5C6578"
-          strokeWidth="3"
-          strokeDasharray="5 6"
-        />
-      ))}
-
+      {/* 4. The 6 hex tile slots */}
       {DISPLAY_POSITIONS.map((pos) => (
         <g key={`slot-${pos.color}`}>
           <polygon points={hexPointsAt(pos.hex.x, pos.hex.y, DISPLAY_HEX_R)} fill="#151E2E" stroke="#334155" strokeWidth="4" />
@@ -548,6 +602,13 @@ const DisplayBoardSVG = ({ className = '' }) => (
           />
         </g>
       ))}
+
+      {/* 5. Optional dial token overlay for previewing */}
+      {showDialToken && (
+        <g transform={`rotate(${dialAngle + 90}) scale(${DISPLAY_DIAL_R / 80}) translate(-120, -120)`}>
+          <DialTokenSVG />
+        </g>
+      )}
     </g>
   </svg>
 );
@@ -1201,6 +1262,7 @@ const ActionTileCard = ({ action, side, size = 420 }) => {
 
 // --- 9. EXPORT HELPERS ------------------------------------------------------
 const TILE_EXPORT_PX = 300;
+const DIAL_TOKEN_EXPORT_PX = 300;
 const ACTION_EXPORT_PX = 420;
 const EXPORT_PIXEL_RATIO = 2;
 
@@ -1233,10 +1295,19 @@ const actionFileName = (action, side) =>
 
 // --- 10. MAIN COMPONENT -----------------------------------------------------
 export default function ColonyCollapseBoardAssets() {
-  const [activeAsset, setActiveAsset] = useState('tiles'); // 'tiles' | 'board' | 'actions'
+  const [activeAsset, setActiveAsset] = useState('display'); // 'tiles' | 'board' | 'display' | 'actions'
   const [tileFlipState, setTileFlipState] = useState({}); // tile id -> 'A' | 'B'
   const [selectedColor, setSelectedColor] = useState('All');
   const [busyLabel, setBusyLabel] = useState(null);
+
+  // Central dial preview state
+  const [displayPreviewWithDial, setDisplayPreviewWithDial] = useState(false);
+  const [displayDialColor, setDisplayDialColor] = useState('Clay');
+
+  const currentDialAngle = useMemo(() => {
+    const pos = DISPLAY_POSITIONS.find((p) => p.color === displayDialColor);
+    return pos ? pos.angleDeg : -90;
+  }, [displayDialColor]);
 
   // District editor: repaint the 30 outer cells to reshape the six districts
   // without touching the shipped DISTRICT_LAYOUT constant.
@@ -1326,6 +1397,18 @@ export default function ColonyCollapseBoardAssets() {
     runExport('display', async () => {
       const dataUrl = await renderNodeToPng('cc-display-export', { transparent: false });
       triggerDownload(dataUrl, 'ColonyCollapse_TileDisplay.png');
+    });
+
+  const exportDisplayBoardWithDial = () =>
+    runExport('display-with-dial', async () => {
+      const dataUrl = await renderNodeToPng('cc-display-with-dial-export', { transparent: false });
+      triggerDownload(dataUrl, `ColonyCollapse_TileDisplay_WithDial_${displayDialColor}.png`);
+    });
+
+  const exportDialToken = () =>
+    runExport('dial-token', async () => {
+      const dataUrl = await renderNodeToPng('cc-dial-token-export', { transparent: true });
+      triggerDownload(dataUrl, 'ColonyCollapse_Token_Dial.png');
     });
 
   const exportSheet = (nodeId, fileName) =>
@@ -1651,25 +1734,140 @@ export default function ColonyCollapseBoardAssets() {
           </section>
         )}
 
-        {/* ---------------- DISPLAY ---------------- */}
+        {/* ---------------- DISPLAY & DIAL TOKEN ---------------- */}
         {activeAsset === 'display' && (
-          <section>
-            <div className="flex flex-wrap items-center gap-3 mb-5 no-print">
-              <button
-                onClick={exportDisplayBoard}
-                disabled={isBusy}
-                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm flex items-center gap-2 cursor-pointer transition-colors"
-              >
-                <Download className="w-4 h-4" /> Display PNG ({DISPLAY_BOARD_SIZE * EXPORT_PIXEL_RATIO}px)
-              </button>
-              <p className="text-xs text-slate-500 max-w-md">
-                Six empty hex slots for the display, a dashed spot for the shared pawn between
-                each pair, and a small arrow off each hex naming the district it feeds.
+          <section className="space-y-8">
+            <div>
+              <div className="flex flex-wrap items-center gap-3 mb-4 no-print">
+                <button
+                  onClick={exportDisplayBoard}
+                  disabled={isBusy}
+                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <Download className="w-4 h-4" /> Display Board PNG ({DISPLAY_BOARD_SIZE * EXPORT_PIXEL_RATIO}px)
+                </button>
+                <button
+                  onClick={exportDisplayBoardWithDial}
+                  disabled={isBusy}
+                  className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"
+                >
+                  <Download className="w-4 h-4" /> Board with Dial ({displayDialColor})
+                </button>
+
+                {/* Preview controls */}
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 ml-auto">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={displayPreviewWithDial}
+                      onChange={(e) => setDisplayPreviewWithDial(e.target.checked)}
+                      className="rounded accent-amber-500 cursor-pointer"
+                    />
+                    <Eye className="w-3.5 h-3.5 text-amber-400" />
+                    Preview dial token on board
+                  </label>
+                </div>
+              </div>
+
+              {displayPreviewWithDial && (
+                <div className="mb-4 bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center gap-3 no-print">
+                  <span className="text-xs font-bold text-slate-400">Aim dial at:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {CC_COLOR_ORDER.map((color) => (
+                      <button
+                        key={`aim-${color}`}
+                        onClick={() => setDisplayDialColor(color)}
+                        className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1.5 cursor-pointer border transition-all ${
+                          displayDialColor === color
+                            ? 'ring-2 ring-amber-400 scale-105'
+                            : 'opacity-70 hover:opacity-100'
+                        }`}
+                        style={{
+                          backgroundColor: `${CC_COLOR_HEX[color]}25`,
+                          borderColor: CC_COLOR_DEEP_HEX[color],
+                          color: CC_COLOR_HEX[color]
+                        }}
+                      >
+                        <IssueSymbol color={color} size={12} colorHex={CC_COLOR_HEX[color]} />
+                        {color}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-slate-500 max-w-xl mb-4">
+                Six empty hex slots in a ring, each with its district color badge, and a central circular dial
+                socket for the rotating dial token.
               </p>
+
+              <div className="max-w-3xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                <DisplayBoardSVG showDialToken={displayPreviewWithDial} dialAngle={currentDialAngle} />
+              </div>
             </div>
 
-            <div className="max-w-3xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-4">
-              <DisplayBoardSVG />
+            {/* ---------------- DIAL TOKEN ASSET CARD ---------------- */}
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                  <h2 className="text-lg font-black text-amber-400 flex items-center gap-2">
+                    <Compass className="w-5 h-5" /> Dial Token
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Sits in the display board's center socket. Rotate the whole token to aim it at any slot.
+                  </p>
+                </div>
+                <button
+                  onClick={exportDialToken}
+                  disabled={isBusy}
+                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm flex items-center gap-2 cursor-pointer transition-colors no-print"
+                >
+                  <Download className="w-4 h-4" /> Dial Token PNG
+                </button>
+              </div>
+
+              <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 flex flex-col items-center max-w-xs mx-auto">
+                <div className="w-56 h-56 relative flex items-center justify-center">
+                  <div
+                    style={{
+                      transform: `rotate(${currentDialAngle + 90}deg)`,
+                      transition: 'transform 0.25s ease-out'
+                    }}
+                    className="w-full h-full flex items-center justify-center"
+                  >
+                    <DialTokenSVG size={220} />
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 text-center mt-3">
+                  Flat pewter disc, a pointer nose, the same bee mark as every other token.
+                </p>
+              </div>
+
+              {/* Aiming test bar */}
+              <div className="mt-6 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 no-print">
+                <span className="text-xs font-bold text-slate-400">Test rotation:</span>
+                <div className="flex flex-wrap gap-2">
+                  {CC_COLOR_ORDER.map((color) => (
+                    <button
+                      key={`test-dial-${color}`}
+                      onClick={() => setDisplayDialColor(color)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer border transition-all ${
+                        displayDialColor === color
+                          ? 'ring-2 ring-amber-400 scale-105'
+                          : 'opacity-75 hover:opacity-100'
+                      }`}
+                      style={{
+                        backgroundColor: `${CC_COLOR_HEX[color]}20`,
+                        borderColor: CC_COLOR_DEEP_HEX[color],
+                        color: CC_COLOR_HEX[color]
+                      }}
+                    >
+                      <IssueSymbol color={color} size={14} colorHex={CC_COLOR_HEX[color]} />
+                      {color}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
         )}
@@ -1774,6 +1972,14 @@ export default function ColonyCollapseBoardAssets() {
 
         <div id="cc-display-export" style={{ width: DISPLAY_BOARD_SIZE, height: DISPLAY_BOARD_SIZE }}>
           <DisplayBoardSVG />
+        </div>
+
+        <div id="cc-display-with-dial-export" style={{ width: DISPLAY_BOARD_SIZE, height: DISPLAY_BOARD_SIZE }}>
+          <DisplayBoardSVG showDialToken={true} dialAngle={currentDialAngle} />
+        </div>
+
+        <div id="cc-dial-token-export" style={{ width: DIAL_TOKEN_EXPORT_PX, height: DIAL_TOKEN_EXPORT_PX }}>
+          <DialTokenSVG size={DIAL_TOKEN_EXPORT_PX} />
         </div>
 
         {['A', 'B'].map((side) => (

@@ -15,6 +15,7 @@ import {
 } from './colonyCollapsePalette.js';
 import IssueSymbol from './ColonyCollapseIssueSymbol.jsx';
 import BeeMark from './ColonyCollapseBeeMark.jsx';
+import DialTokenSVG from './ColonyCollapseDialToken.jsx';
 
 // Pointy-top hexagon vertices, same formula used for the hex tiles and board.
 const hexPointsAt = (cx, cy, r) =>
@@ -670,6 +671,12 @@ export default function ColonyCollapseTracksAssets() {
       nodeId: 'cc-token-shared-pawn',
       fileName: 'ColonyCollapse_Token_SharedPawn.png',
       label: 'Shared pawn'
+    },
+    {
+      key: 'dial-token',
+      nodeId: 'cc-token-dial',
+      fileName: 'ColonyCollapse_Token_Dial.png',
+      label: 'Dial token'
     }
   ];
 
@@ -801,6 +808,18 @@ export default function ColonyCollapseTracksAssets() {
                   <Download className="w-3 h-3 inline mr-1" /> Shared pawn
                 </button>
               </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col items-center gap-2">
+                <div className="w-full aspect-square">
+                  <DialTokenSVG size={TOKEN_SIZE} />
+                </div>
+                <button
+                  onClick={() => exportNode('cc-token-dial', 'ColonyCollapse_Token_Dial.png')}
+                  disabled={isBusy}
+                  className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
+                >
+                  <Download className="w-3 h-3 inline mr-1" /> Dial token
+                </button>
+              </div>
             </div>
           </section>
         )}
@@ -883,6 +902,9 @@ export default function ColonyCollapseTracksAssets() {
         </div>
         <div id="cc-token-shared-pawn" style={{ width: TOKEN_SIZE, height: TOKEN_SIZE }}>
           <SharedPawnSVG />
+        </div>
+        <div id="cc-token-dial" style={{ width: TOKEN_SIZE, height: TOKEN_SIZE }}>
+          <DialTokenSVG size={TOKEN_SIZE} />
         </div>
 
         <div id="cc-tracks-board" style={{ width: TRACKS_BOARD_WIDTH, height: TRACKS_BOARD_HEIGHT }}>
