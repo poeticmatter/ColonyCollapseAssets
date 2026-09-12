@@ -2,7 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import {
   Download, Printer, LayoutGrid, Filter, FileImage, Package, Grid3x3, Hexagon, Layers,
   Megaphone, Hammer, Handshake, Radio, Newspaper, GraduationCap, RotateCcw, ArrowRight,
-  Edit3, Copy, TrendingUp, Redo, Circle
+  Edit3, Copy, TrendingUp, Redo, Circle, Triangle
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import JSZip from 'jszip';
@@ -156,6 +156,40 @@ const hexDistanceFromHub = (q, r) => Math.max(Math.abs(q), Math.abs(r), Math.abs
 
 const DISTRICT_COLORS = DISTRICT_LAYOUT.map((district) => district.color);
 
+// The round-number badge's fill runs from a deep gold (1) to the game's
+// brightest gold (5), so which slots activate early vs. late reads at a
+// glance from color alone, not just the printed digit.
+const ROUND_NUMBER_FILLS = ['#8A5A00', '#A9740A', '#C48D15', '#DFA820', '#F5B301'];
+
+// Dice pips, not a printed digit - a human recognizes a dot count at a glance
+// (subitizing) far faster than reading a numeral, and it works for players
+// who can't rely on the color gradient alone.
+const ROUND_PIP_LAYOUTS = [
+  [[0, 0]],
+  [
+    [-13, -13],
+    [13, 13]
+  ],
+  [
+    [-13, -13],
+    [0, 0],
+    [13, 13]
+  ],
+  [
+    [-13, -13],
+    [13, -13],
+    [-13, 13],
+    [13, 13]
+  ],
+  [
+    [-13, -13],
+    [13, -13],
+    [0, 0],
+    [-13, 13],
+    [13, 13]
+  ]
+];
+
 // { "q,r": districtIndex } for the 30 cells two-plus steps from the hub - the
 // only cells the district editor lets you repaint. Each district's single
 // inner-ring cell (distance 1) is fixed, since that is the cell that ends up
@@ -183,6 +217,28 @@ const buildDistrictByAxial = (outerDistricts) => {
 // Cells plus the border segments between districts, derived fresh from any
 // outer-cell assignment - the static export and the live district editor
 // both render through this, so they can never drift apart.
+// Numbers each district's own slot cells 1-5, middle ring before outer ring
+// (roughly inside to outside within each ring, ordered by angle around the
+// hub) - mutates the cell objects in place since buildBoardGeometry just
+// built them fresh.
+const assignRoundNumbers = (cells) => {
+  const slotsByDistrict = new Map();
+  cells.forEach((cell) => {
+    if (cell.kind !== 'slot' || cell.district == null) return;
+    if (!slotsByDistrict.has(cell.district)) slotsByDistrict.set(cell.district, []);
+    slotsByDistrict.get(cell.district).push(cell);
+  });
+
+  slotsByDistrict.forEach((districtSlots) => {
+    const ring = (cell) => hexDistanceFromHub(cell.q, cell.r);
+    const angle = (cell) => Math.atan2(cell.y, cell.x);
+    const ordered = [...districtSlots].sort((a, b) => ring(a) - ring(b) || angle(a) - angle(b));
+    ordered.forEach((cell, idx) => {
+      cell.roundNumber = idx + 1;
+    });
+  });
+};
+
 const buildBoardGeometry = (outerDistricts) => {
   const districtByAxial = buildDistrictByAxial(outerDistricts);
   const cells = [];
@@ -204,6 +260,8 @@ const buildBoardGeometry = (outerDistricts) => {
       });
     }
   }
+
+  assignRoundNumbers(cells);
 
   const byAxial = new Map(cells.map((cell) => [`${cell.q},${cell.r}`, cell]));
   const borderSegments = [];
@@ -311,6 +369,21 @@ const BoardSVG = ({
                 strokeWidth="2.5"
                 strokeDasharray="10 9"
               />
+
+              {/* The round this slot activates: a dice-pip badge, darker to
+                  brighter with the number, so a player can spot every "1"
+                  across the board by shape and color without reading anything. */}
+              <circle
+                cx={cell.x}
+                cy={cell.y}
+                r="30"
+                fill={ROUND_NUMBER_FILLS[cell.roundNumber - 1]}
+                stroke="#0B1220"
+                strokeWidth="2.5"
+              />
+              {ROUND_PIP_LAYOUTS[cell.roundNumber - 1].map(([dx, dy], pipIdx) => (
+                <circle key={pipIdx} cx={cell.x + dx} cy={cell.y + dy} r="5.5" fill="#1A1206" stroke="none" />
+              ))}
             </g>
           );
         }
@@ -385,6 +458,100 @@ const BoardSVG = ({
   </svg>
 );
 
+// --- 6B. DISPLAY BOARD -------------------------------------------------
+// The 6-hex tile display referenced by the Address/Develop action icons: six
+// empty hex slots in a ring, six pawn-docking spots in the gaps between them
+// (the pawn moves junction to junction around this ring, same idea as the
+// board), and a small arrow off each hex pointing to the district it feeds -
+// kept modest and clear of the hex itself so a real tile in the slot never
+// covers it.
+// board), and a small color+icon badge on an inner ring, aligned to the same
+// angle as its hex, so which district each slot feeds is obvious from
+// position alone - no arrow needed, and the board stays compact.
+const DISPLAY_HEX_R = 110;
+const DISPLAY_RING_R = 300;
+const DISPLAY_PAWN_RING_R = 210;
+const DISPLAY_PAWN_R = 38;
+const DISPLAY_BADGE_RING_R = 130;
+const DISPLAY_BADGE_R = 40;
+const DISPLAY_MARGIN = 30;
+const DISPLAY_BOARD_SIZE = (DISPLAY_RING_R + DISPLAY_HEX_R + DISPLAY_MARGIN) * 2;
+const DISPLAY_BOARD_CENTER = { x: DISPLAY_BOARD_SIZE / 2, y: DISPLAY_BOARD_SIZE / 2 };
+
+const DISPLAY_POSITIONS = CC_COLOR_ORDER.map((color, idx) => {
+  const angleDeg = -90 + 60 * idx;
+  const angle = (angleDeg * Math.PI) / 180;
+  const pawnAngle = ((angleDeg + 30) * Math.PI) / 180;
+  return {
+    color,
+    hex: { x: DISPLAY_RING_R * Math.cos(angle), y: DISPLAY_RING_R * Math.sin(angle) },
+    pawn: { x: DISPLAY_PAWN_RING_R * Math.cos(pawnAngle), y: DISPLAY_PAWN_RING_R * Math.sin(pawnAngle) },
+    badge: { x: DISPLAY_BADGE_RING_R * Math.cos(angle), y: DISPLAY_BADGE_RING_R * Math.sin(angle) }
+  };
+});
+
+const DisplayBoardSVG = ({ className = '' }) => (
+  <svg
+    viewBox={`0 0 ${DISPLAY_BOARD_SIZE} ${DISPLAY_BOARD_SIZE}`}
+    width="100%"
+    height="100%"
+    className={`select-none block ${className}`}
+    style={{ width: '100%', height: '100%' }}
+  >
+    <defs>
+      <radialGradient id="cc-display-ground" cx="50%" cy="50%" r="65%">
+        <stop offset="0%" stopColor="#1E293B" />
+        <stop offset="100%" stopColor="#080D18" />
+      </radialGradient>
+    </defs>
+
+    <rect x="0" y="0" width={DISPLAY_BOARD_SIZE} height={DISPLAY_BOARD_SIZE} fill="url(#cc-display-ground)" />
+
+    <g transform={`translate(${DISPLAY_BOARD_CENTER.x}, ${DISPLAY_BOARD_CENTER.y})`}>
+      {DISPLAY_POSITIONS.map((pos) => {
+        const fillHex = CC_COLOR_HEX[pos.color];
+        const deepHex = CC_COLOR_DEEP_HEX[pos.color];
+        const inkHex = CC_COLOR_INK[pos.color];
+        const iconSize = DISPLAY_BADGE_R * 0.85;
+        return (
+          <g key={`badge-${pos.color}`}>
+            <circle cx={pos.badge.x} cy={pos.badge.y} r={DISPLAY_BADGE_R} fill={fillHex} stroke={deepHex} strokeWidth="3.5" />
+            <g transform={`translate(${pos.badge.x - iconSize / 2}, ${pos.badge.y - iconSize / 2})`}>
+              <IssueSymbol color={pos.color} size={iconSize} strokeWidth={2.2} colorHex={inkHex} />
+            </g>
+          </g>
+        );
+      })}
+
+      {DISPLAY_POSITIONS.map((pos) => (
+        <circle
+          key={`pawn-${pos.color}`}
+          cx={pos.pawn.x}
+          cy={pos.pawn.y}
+          r={DISPLAY_PAWN_R}
+          fill="#151E2E"
+          stroke="#5C6578"
+          strokeWidth="3"
+          strokeDasharray="5 6"
+        />
+      ))}
+
+      {DISPLAY_POSITIONS.map((pos) => (
+        <g key={`slot-${pos.color}`}>
+          <polygon points={hexPointsAt(pos.hex.x, pos.hex.y, DISPLAY_HEX_R)} fill="#151E2E" stroke="#334155" strokeWidth="4" />
+          <polygon
+            points={hexPointsAt(pos.hex.x, pos.hex.y, DISPLAY_HEX_R - 16)}
+            fill="none"
+            stroke="#3E4C63"
+            strokeWidth="2.5"
+            strokeDasharray="10 9"
+          />
+        </g>
+      ))}
+    </g>
+  </svg>
+);
+
 // --- 7. ACTION GLYPHS -------------------------------------------------------
 // Each glyph is a 48x48 line drawing that inherits `currentColor`, so the same
 // artwork works on the light basic side and the dark upgraded side.
@@ -437,6 +604,19 @@ const chevronPair = (cx, cy, r) => {
   ];
 };
 
+// A pair of horizontal bars ("=") sized to a hex of radius r - the upgraded
+// counterpart to chevronPair: chevrons mean "must be ahead", equals means
+// "ties count too", replacing what used to be a text label under the icon.
+const equalsPair = (cx, cy, r) => {
+  const halfWidth = r * 0.5;
+  const y1 = cy - r * 0.22;
+  const y2 = cy + r * 0.22;
+  return [
+    `M ${(cx - halfWidth).toFixed(2)} ${y1.toFixed(2)} L ${(cx + halfWidth).toFixed(2)} ${y1.toFixed(2)}`,
+    `M ${(cx - halfWidth).toFixed(2)} ${y2.toFixed(2)} L ${(cx + halfWidth).toFixed(2)} ${y2.toFixed(2)}`
+  ];
+};
+
 // The display: six hexes in a circle with one shared pawn moving around them.
 // The orbit arrow covers about a third of the ring, clear of the hexes.
 const DisplayGlyph = ({ size = 48 }) => {
@@ -457,40 +637,57 @@ const DisplayGlyph = ({ size = 48 }) => {
 };
 
 // The bare track ladder shared by every "advance an issue" glyph below.
-const TrackLadder = () => (
+// `x` lets it sit on either side of whatever it's paired with.
+const TrackLadder = ({ x = 8 }) => (
   <>
-    <rect x="8" y="7" width="16" height="35" rx="8" />
-    <path d="M 11.5 17 L 20.5 17" strokeWidth="1.6" />
-    <path d="M 11.5 25 L 20.5 25" strokeWidth="1.6" />
-    <path d="M 11.5 33 L 20.5 33" strokeWidth="1.6" />
-    <circle cx="16" cy="37.5" r="3.2" fill="currentColor" stroke="none" />
+    <rect x={x} y="7" width="16" height="35" rx="8" />
+    <path d={`M ${x + 3.5} 17 L ${x + 12.5} 17`} strokeWidth="1.6" />
+    <path d={`M ${x + 3.5} 25 L ${x + 12.5} 25`} strokeWidth="1.6" />
+    <path d={`M ${x + 3.5} 33 L ${x + 12.5} 33`} strokeWidth="1.6" />
+    <circle cx={x + 8} cy="37.5" r="3.2" fill="currentColor" stroke="none" />
   </>
 );
 
 // Advance one step on an issue track - the generic, unattached version, used
-// where there is no card or tile alongside it to say which track.
-const IssueGlyph = ({ size = 48 }) => (
+// where there is no card or tile alongside it to say which track. An arrow
+// capped by a line ("up to a limit"), with how far - N or 2N - named above it.
+const IssueGlyph = ({ size = 48, label }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <TrackLadder />
-    <path d="M 37 36 L 37 12.5" strokeWidth="2.6" />
-    <path d="M 31.6 17.6 L 37 12 L 42.4 17.6" strokeWidth="2.6" />
+    {label && (
+      <text
+        x="24"
+        y="10"
+        textAnchor="middle"
+        fontFamily="ui-sans-serif, system-ui, sans-serif"
+        fontSize="13"
+        fontWeight="800"
+        fill="currentColor"
+        stroke="none"
+      >
+        {label}
+      </text>
+    )}
+    <path d="M 11 15 L 37 15" strokeWidth="3" />
+    <path d="M 24 42 L 24 19" strokeWidth="3" />
+    <path d="M 16.5 26.5 L 24 19 L 31.5 26.5" strokeWidth="3" />
   </svg>
 );
 
-// Advance the track matching a tile's colour - track and hex side by side,
-// no arrow needed since the pairing already says which track advances.
+// Advance the track matching a tile's colour - the hex sits to the left of
+// the track (which one), no arrow needed since the pairing already says
+// which track advances.
 const IssueTileGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <TrackLadder />
-    <polygon points={hexPointsAt(36, 23, 9.5)} />
+    <polygon points={hexPointsAt(12, 23, 9.5)} />
+    <TrackLadder x={24} />
   </svg>
 );
 
-// Advance the track matching a card's colour - track and card side by side.
+// Advance the track matching a card's colour - the card sits to the left.
 const IssueCardGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <TrackLadder />
-    <rect x="29" y="14" width="13" height="18" rx="2.2" />
+    <rect x="5" y="14" width="13" height="18" rx="2.2" />
+    <TrackLadder x={24} />
   </svg>
 );
 
@@ -561,6 +758,24 @@ const RallyJunctionGlyph = ({ size = 48 }) => (
   </svg>
 );
 
+// The upgraded rally-a-junction: the same three touching hexes, but marked
+// with equals signs instead of chevrons - rallying is allowed on a tie too.
+const RallyJunctionEqualGlyph = ({ size = 48 }) => (
+  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+    {RALLY_JUNCTION_CENTERS.map((center, idx) => {
+      const [upper, lower] = equalsPair(center.x, center.y, RALLY_JUNCTION_HEX_R);
+      return (
+        <g key={`rally-junction-eq-hex-${idx}`}>
+          <polygon points={hexPointsAt(center.x, center.y, RALLY_JUNCTION_HEX_R)} />
+          <path d={upper} strokeWidth="2.2" />
+          <path d={lower} strokeWidth="2.2" />
+        </g>
+      );
+    })}
+    <circle cx={RALLY_JUNCTION_VERTEX.x} cy={RALLY_JUNCTION_VERTEX.y} r="3.4" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 // Move the pawn along a tile edge, from one junction to the next.
 const JunctionGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
@@ -595,6 +810,19 @@ const DrawGlyph = ({ size = 48 }) => (
 
 const RepeatGlyph = ({ size = 48 }) => <RotateCcw size={size} strokeWidth={2} />;
 
+// A small flowchart-style self-loop: a curved arrow leaving a shape and
+// re-entering it, rather than a second boxed icon - used as a corner badge
+// on whatever icon it means "do this again".
+const SelfLoopGlyph = ({ size = 22 }) => {
+  const orbit = ringArrow(11, 11, 8, -50, 300);
+  return (
+    <svg viewBox="0 0 22 22" width={size} height={size}>
+      <path d={orbit.path} stroke="currentColor" strokeWidth="2.4" fill="none" strokeLinecap="round" />
+      <polygon points={orbit.arrow} fill="currentColor" />
+    </svg>
+  );
+};
+
 const ACTION_GLYPHS = {
   display: DisplayGlyph,
   issue: IssueGlyph,
@@ -604,11 +832,95 @@ const ACTION_GLYPHS = {
   place: PlaceGlyph,
   rallyTile: RallyOneGlyph,
   rallyJunction: RallyJunctionGlyph,
+  rallyJunctionEqual: RallyJunctionEqualGlyph,
   junction: JunctionGlyph,
   cards: CardsGlyph,
   draw: DrawGlyph,
   repeat: RepeatGlyph
 };
+
+// --- 7B. ICON REFERENCE SHEET ----------------------------------------------
+// The tiles themselves carry no words now - this sheet is where the icon
+// language actually gets explained, once, in plain sentences.
+const ICON_LEGEND_ENTRIES = [
+  { key: 'display', label: 'The display', description: 'Move the pawn up to N spaces around the six-hex display.' },
+  { key: 'issue', label: 'Advance a track', description: 'Advance any one issue track of your choice.' },
+  { key: 'issueTile', label: "A tile's issue", description: "Advance the track matching that tile's color." },
+  { key: 'issueCard', label: "A card's issue", description: "Advance the track matching that card's color." },
+  { key: 'flip', label: 'Flip', description: 'Flip a tile over to its other color.' },
+  { key: 'place', label: 'Place', description: 'Place a tile onto an empty slot on the board.' },
+  { key: 'rallyTile', label: 'Rally one tile', description: 'Rally a single tile.' },
+  {
+    key: 'rallyJunction',
+    label: 'Rally a junction',
+    description: 'Rally the three tiles at one junction. Chevrons: you must be ahead on that issue.'
+  },
+  {
+    key: 'rallyJunctionEqual',
+    label: 'Rally, ties count',
+    description: 'The same rally, but a tie on that issue is enough - you don’t need to be strictly ahead.'
+  },
+  { key: 'junction', label: 'Move the pawn', description: 'Move the shared pawn along tile edges, junction to junction.' },
+  { key: 'cards', label: 'Play a card', description: 'Play a card from the numbered display.' },
+  { key: 'draw', label: 'Draw / look', description: 'Draw from the deck, or look at its top card, and keep one.' },
+  { key: 'repeat', label: 'Repeat', description: 'Repeat your previous action.' }
+];
+
+const ICON_LEGEND_CONVENTIONS = [
+  { label: 'Arrow →', description: 'Do the step before the arrow, then the one after it.' },
+  { label: 'Down arrow', description: 'Same meaning as → - the sequence just wrapped onto a second row.' },
+  { label: '/ between icons', description: 'Choose one of the two - either icon, your pick.' },
+  { label: 'Boxed value', description: 'A fixed number or word (like "N = 1") - not the tile’s own strength.' },
+  { label: 'Small loop badge', description: 'Do the icon it’s attached to repeatedly - the number above it is how many times.' },
+  { label: 'Corner triangle', description: 'This is the tile’s upgraded side.' }
+];
+
+const ActionIconLegendSheet = () => (
+  <div
+    className="font-sans"
+    style={{ width: 1240, background: '#0B1220', padding: 44, borderRadius: 30, border: '4px solid #22304A' }}
+  >
+    <div className="flex items-center gap-3 mb-1">
+      <Hexagon className="w-8 h-8 text-amber-400" />
+      <span className="text-[32px] font-black text-amber-400 tracking-tight">Action Tile Icon Reference</span>
+    </div>
+    <p className="text-[15px] text-slate-400 mb-8">What each symbol on an action tile means.</p>
+
+    <div className="grid grid-cols-2 gap-x-12 gap-y-6 mb-10">
+      {ICON_LEGEND_ENTRIES.map((entry) => {
+        const Glyph = ACTION_GLYPHS[entry.key];
+        return (
+          <div key={entry.key} className="flex items-center gap-4">
+            <span
+              className="rounded-xl border-2 flex items-center justify-center shrink-0"
+              style={{ width: 78, height: 78, borderColor: '#C9BFA4', background: '#F7F2E4', color: '#22304A' }}
+            >
+              <Glyph size={54} />
+            </span>
+            <div>
+              <div className="text-[18px] font-black text-white leading-tight">{entry.label}</div>
+              <div className="text-[14px] text-slate-400 leading-snug mt-0.5">{entry.description}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+
+    <div className="pt-7 border-t border-slate-700">
+      <div className="text-[14px] font-black text-amber-400 uppercase tracking-wider mb-4">Reading the tiles</div>
+      <div className="grid grid-cols-2 gap-x-12 gap-y-3">
+        {ICON_LEGEND_CONVENTIONS.map((item) => (
+          <div key={item.label} className="flex items-start gap-3">
+            <span className="text-[15px] font-black text-white shrink-0" style={{ width: 150 }}>
+              {item.label}
+            </span>
+            <span className="text-[14px] text-slate-400 leading-snug">{item.description}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 // --- 8. THE 6 DOUBLE-SIDED ACTION TILES ------------------------------------
 // `steps` is the icon sentence across the middle of the tile, `text` is the
@@ -619,19 +931,13 @@ const CC_ACTIONS = [
     name: 'Address',
     Icon: Megaphone,
     basic: {
-      steps: [
-        { glyph: 'display', label: '≤ N' },
-        { glyph: 'issueTile' },
-        { glyph: 'flip' }
-      ],
+      rows: [{ steps: [{ glyph: 'display' }, { glyph: 'issueTile' }] }, { connector: 'then', steps: [{ glyph: 'flip' }] }],
       text: 'Move up to N on the display. Advance that tile’s issue, then flip it.'
     },
     upgraded: {
-      steps: [
-        { glyph: 'display', label: '≤ N' },
-        { glyph: 'issueTile' },
-        { glyph: 'flip' },
-        { glyph: 'place' }
+      rows: [
+        { steps: [{ glyph: 'display' }, { glyph: 'issueTile' }] },
+        { connector: 'then', steps: [{ glyph: 'flip' }, { glyph: 'place' }] }
       ],
       text: 'Move up to N on the display. Advance that tile’s issue, then flip it.',
       bonus: 'Then place that tile on the board.'
@@ -642,17 +948,13 @@ const CC_ACTIONS = [
     name: 'Develop',
     Icon: Hammer,
     basic: {
-      steps: [
-        { glyph: 'display', label: 'N' },
-        { glyph: 'place' }
-      ],
+      rows: [{ steps: [{ glyph: 'display' }] }, { connector: 'then', steps: [{ glyph: 'place' }] }],
       text: 'Move N on the display. Place that tile on the board.'
     },
     upgraded: {
-      steps: [
-        { glyph: 'display', label: 'N' },
-        { glyph: 'place' },
-        { glyph: 'rallyTile' }
+      rows: [
+        { steps: [{ glyph: 'display' }, { glyph: 'place' }] },
+        { connector: 'then', steps: [{ glyph: 'rallyTile' }] }
       ],
       text: 'Move N on the display. Place that tile on the board.',
       bonus: 'Then rally that tile.'
@@ -663,15 +965,13 @@ const CC_ACTIONS = [
     name: 'Leverage',
     Icon: Handshake,
     basic: {
-      steps: [
-        { group: [{ glyph: 'cards', label: '1–N' }, { separator: 'or' }, { glyph: 'draw', label: 'N → 1' }] }
-      ],
+      rows: [{ steps: [{ glyph: 'cards' }, { separator: '/' }, { glyph: 'draw' }] }],
       text: 'Play a card from slots 1–N, or draw N cards and play one of them.'
     },
     upgraded: {
-      steps: [
-        { group: [{ glyph: 'cards', label: '1–N' }, { separator: 'or' }, { glyph: 'draw', label: 'N → 1' }] },
-        { glyph: 'issueCard' }
+      rows: [
+        { steps: [{ glyph: 'cards' }, { separator: '/' }, { glyph: 'draw' }] },
+        { connector: 'then', steps: [{ glyph: 'issueCard' }] }
       ],
       text: 'Play a card from slots 1–N, or draw N cards and play one of them.',
       bonus: 'Then advance the issue matching that card’s color.'
@@ -682,17 +982,11 @@ const CC_ACTIONS = [
     name: 'Dance',
     Icon: Radio,
     basic: {
-      steps: [
-        { glyph: 'junction', label: 'N' },
-        { glyph: 'rallyJunction', label: 'Greater' }
-      ],
+      rows: [{ steps: [{ glyph: 'junction' }, { glyph: 'rallyJunction' }] }],
       text: 'Move the pawn N junctions along tile edges, then rally the 3 adjacent tiles.'
     },
     upgraded: {
-      steps: [
-        { glyph: 'junction', label: 'N' },
-        { glyph: 'rallyJunction', label: 'Equal or Greater' }
-      ],
+      rows: [{ steps: [{ glyph: 'junction' }, { glyph: 'rallyJunctionEqual' }] }],
       text: 'Move the pawn N junctions along tile edges, then rally the 3 adjacent tiles.',
       bonus: 'You may rally issues on which you are tied.'
     }
@@ -702,17 +996,11 @@ const CC_ACTIONS = [
     name: 'Larvae',
     Icon: GraduationCap,
     basic: {
-      steps: [
-        { glyph: 'repeat', label: 'prev.' },
-        { chip: ['N = 1', 'Basic'] }
-      ],
+      rows: [{ steps: [{ glyph: 'repeat' }] }, { connector: 'then', steps: [{ chip: ['N = 1', 'Basic'] }] }],
       text: 'Repeat your previous action at strength 1, using its basic side.'
     },
     upgraded: {
-      steps: [
-        { glyph: 'repeat', label: 'prev.' },
-        { chip: ['N = 1'] }
-      ],
+      rows: [{ steps: [{ glyph: 'repeat' }] }, { connector: 'then', steps: [{ chip: ['N = 1'] }] }],
       text: 'Repeat your previous action at strength 1.',
       bonus: 'You may use its upgraded side.'
     }
@@ -722,14 +1010,13 @@ const CC_ACTIONS = [
     name: 'Media',
     Icon: Newspaper,
     basic: {
-      steps: [{ glyph: 'flip', label: '× N' }],
+      rows: [{ steps: [{ glyph: 'flip', loop: 'N' }] }],
       text: 'Flip N tiles.'
     },
     upgraded: {
-      steps: [
-        { glyph: 'flip', label: '× N' },
-        { glyph: 'draw' },
-        { group: [{ glyph: 'cards', label: 'play' }, { separator: 'or' }, { glyph: 'issueCard' }] }
+      rows: [
+        { steps: [{ glyph: 'flip' }, { glyph: 'draw' }] },
+        { connector: 'then', steps: [{ glyph: 'cards' }, { separator: '/' }, { glyph: 'issueCard' }] }
       ],
       text: 'Flip N tiles, then look at the top card of the deck.',
       bonus: 'Play it, or discard it to advance the issue matching its color.'
@@ -740,55 +1027,53 @@ const CC_ACTIONS = [
     name: 'Invest',
     Icon: TrendingUp,
     basic: {
-      steps: [{ glyph: 'issue', label: '≤ N' }],
+      rows: [{ steps: [{ glyph: 'issue', label: 'N' }] }],
       text: 'Advance any one issue track up to N.'
     },
     upgraded: {
-      steps: [{ glyph: 'issue', label: '≤ 2N' }],
+      rows: [{ steps: [{ glyph: 'issue', label: '2N' }] }],
       text: 'Advance any one issue track up to N.',
       bonus: 'Advance it up to 2N instead.'
     }
   }
 ];
 
+// Basic and upgraded share every interior color - body, header, icon boxes,
+// ink - so only the frame (and the upgraded corner triangle) tell them apart.
+// Body, icon boxes and glyph ink stay identical on both sides; the header
+// bar is paired with the frame color, so basic is dark blue top-to-bottom
+// and upgraded is the same brown as its border, not the other way round.
+const ACTION_TILE_SHARED = {
+  body: '#F7F2E4',
+  headerInk: '#FFFFFF',
+  glyphInk: '#22304A',
+  stepBg: '#FFFFFF',
+  stepBorder: '#C9BFA4'
+};
+
 const ACTION_SIDE_THEME = {
   basic: {
-    body: '#F7F2E4',
+    ...ACTION_TILE_SHARED,
     border: '#22304A',
-    headerBg: '#1B2739',
-    headerInk: '#F8FAFC',
-    ink: '#1F2937',
-    glyphInk: '#22304A',
-    stepBg: '#FFFFFF',
-    stepBorder: '#C9BFA4'
+    headerBg: '#22304A'
   },
   upgraded: {
-    body: '#101725',
-    border: '#F5B301',
-    headerBg: '#F5B301',
-    headerInk: '#1A1206',
-    ink: '#E8EDF6',
-    glyphInk: '#FDE68A',
-    stepBg: 'rgba(245,179,1,0.09)',
-    stepBorder: 'rgba(245,179,1,0.45)'
+    ...ACTION_TILE_SHARED,
+    border: '#8A5A00',
+    headerBg: '#8A5A00'
   }
 };
 
-// Counts real icons only, looking inside groups - used to pick a glyph size
-// that keeps every row of a tile from overflowing.
-const countGlyphSteps = (steps) =>
-  steps.reduce((total, step) => (step.group ? total + countGlyphSteps(step.group) : total + (step.glyph ? 1 : 0)), 0);
+// One glyph size everywhere, matching Develop's upgraded tile - every action
+// tile reads at the same scale instead of icons shrinking as a row fills up.
+const ACTION_GLYPH_SIZE = 88;
 
-// Every icon step reserves the same label-line height, whether or not it has
-// a label, so icon boxes across a row line up instead of drifting depending
-// on which steps happen to carry text.
+// A plain icon box, no label underneath - the icon reference sheet carries
+// the explanation now, so the tile itself can give the icon all the room.
 const ActionStep = ({ step, theme, glyphSize }) => {
   if (step.separator) {
     return (
-      <span
-        className="text-[13px] font-black tracking-[0.14em] uppercase shrink-0"
-        style={{ color: theme.glyphInk, opacity: 0.7 }}
-      >
+      <span className="text-[30px] font-black leading-none shrink-0" style={{ color: theme.glyphInk, opacity: 0.6 }}>
         {step.separator}
       </span>
     );
@@ -798,13 +1083,19 @@ const ActionStep = ({ step, theme, glyphSize }) => {
     const lines = Array.isArray(step.chip) ? step.chip : [step.chip];
     return (
       <span
-        className="px-3.5 py-2.5 rounded-lg shrink-0 border-2 flex flex-col items-center justify-center gap-0.5"
-        style={{ color: theme.glyphInk, borderColor: theme.stepBorder, background: theme.stepBg }}
+        className="rounded-xl shrink-0 border-2 flex flex-col items-center justify-center gap-0.5"
+        style={{
+          color: theme.glyphInk,
+          borderColor: theme.stepBorder,
+          background: theme.stepBg,
+          width: glyphSize + 24,
+          height: glyphSize + 24
+        }}
       >
         {lines.map((line, idx) => (
           <span
             key={line}
-            className={idx === 0 ? 'text-[17px] font-black tracking-wide leading-none' : 'text-[11px] font-bold uppercase tracking-widest leading-none opacity-75'}
+            className={idx === 0 ? 'text-[28px] font-black tracking-wide leading-none' : 'text-[15px] font-bold uppercase tracking-widest leading-none opacity-75 mt-1'}
           >
             {line}
           </span>
@@ -814,41 +1105,31 @@ const ActionStep = ({ step, theme, glyphSize }) => {
   }
 
   const Glyph = ACTION_GLYPHS[step.glyph];
+  const boxSize = glyphSize + 24;
   return (
-    <span className="flex flex-col items-center gap-1.5 shrink-0" style={{ color: theme.glyphInk }}>
+    <span className="relative shrink-0" style={{ width: boxSize, height: boxSize }}>
       <span
-        className="rounded-xl border-2 flex items-center justify-center"
+        className="rounded-xl border-2 flex items-center justify-center w-full h-full"
         style={{
+          color: theme.glyphInk,
           borderColor: theme.stepBorder,
-          background: theme.stepBg,
-          width: glyphSize + 20,
-          height: glyphSize + 20
+          background: theme.stepBg
         }}
       >
-        <Glyph size={glyphSize} />
+        <Glyph size={glyphSize} label={step.label} />
       </span>
-      <span
-        className="text-[13px] font-black tracking-wide leading-none"
-        style={{ visibility: step.label ? 'visible' : 'hidden' }}
-      >
-        {step.label || '\u00A0'}
-      </span>
+      {step.loop && (
+        <span
+          className="absolute flex flex-col items-center"
+          style={{ top: -16, right: -14, color: theme.glyphInk }}
+        >
+          <span className="text-[13px] font-black leading-none mb-0.5">{step.loop}</span>
+          <SelfLoopGlyph size={22} />
+        </span>
+      )}
     </span>
   );
 };
-
-// A dashed box around a cluster of alternative steps - "pick one of these",
-// e.g. play card A or draw card B, both drawn at normal icon size.
-const ActionStepGroup = ({ subSteps, theme, glyphSize }) => (
-  <span
-    className="flex items-end gap-1.5 px-2 pt-2 pb-1 rounded-2xl border-2 border-dashed shrink-0"
-    style={{ borderColor: theme.stepBorder }}
-  >
-    {subSteps.map((subStep, idx) => (
-      <ActionStep key={idx} step={subStep} theme={theme} glyphSize={glyphSize} />
-    ))}
-  </span>
-);
 
 const ActionTileCard = ({ action, side, size = 420 }) => {
   const isUpgraded = side === 'upgraded';
@@ -856,8 +1137,7 @@ const ActionTileCard = ({ action, side, size = 420 }) => {
   const face = isUpgraded ? action.upgraded : action.basic;
   const { Icon } = action;
 
-  const glyphCount = countGlyphSteps(face.steps);
-  const glyphSize = glyphCount >= 4 ? 46 : glyphCount === 3 ? 54 : 64;
+  const glyphSize = ACTION_GLYPH_SIZE;
 
   return (
     <div
@@ -870,7 +1150,7 @@ const ActionTileCard = ({ action, side, size = 420 }) => {
         borderRadius: 30
       }}
     >
-      {/* Header: name and emblem - the frame color and gold header already say which side this is */}
+      {/* Header: name and emblem - a small triangle in the corner marks the upgraded side */}
       <div
         className="flex items-center gap-3 px-4 shrink-0"
         style={{ background: theme.headerBg, color: theme.headerInk, height: 74 }}
@@ -879,50 +1159,41 @@ const ActionTileCard = ({ action, side, size = 420 }) => {
         <span className="text-[30px] font-black tracking-tight leading-none flex-1">
           {action.name}
         </span>
+        {isUpgraded && <Triangle size={28} fill={theme.headerInk} color={theme.headerInk} strokeWidth={0} />}
       </div>
 
-      {/* Icon sentence */}
-      <div className="flex-1 flex items-center justify-center gap-2 px-3">
-        {face.steps.map((step, idx) => {
-          const previous = face.steps[idx - 1];
-          const needsArrow = idx > 0 && !step.separator && !(previous && previous.separator);
-          return (
-            <React.Fragment key={`${action.id}-${side}-step-${idx}`}>
-              {needsArrow && (
-                <ArrowRight
-                  size={18}
-                  strokeWidth={3}
-                  style={{ color: theme.glyphInk, opacity: 0.55, flexShrink: 0 }}
-                />
-              )}
-              {step.group ? (
-                <ActionStepGroup subSteps={step.group} theme={theme} glyphSize={glyphSize} />
+      {/* Icon sentence - the whole rule, no words, explained on the icon reference sheet */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-3">
+        {face.rows.map((row, rowIdx) => (
+          <React.Fragment key={`row-${rowIdx}`}>
+            {rowIdx > 0 &&
+              (row.connector === 'or' ? (
+                <span className="text-[26px] font-black leading-none" style={{ color: theme.glyphInk, opacity: 0.5 }}>
+                  /
+                </span>
               ) : (
-                <ActionStep step={step} theme={theme} glyphSize={glyphSize} />
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
-
-      {/* Rule text */}
-      <div className="px-4 pb-4 shrink-0">
-        <p className="text-[15px] font-bold leading-snug text-center" style={{ color: theme.ink }}>
-          {face.text}
-        </p>
-        {face.bonus && (
-          <p
-            className="mt-2 px-3 py-2 rounded-xl text-[15px] font-black leading-snug text-center"
-            style={{
-              color: '#F5B301',
-              background: 'rgba(245,179,1,0.13)',
-              border: '2px solid rgba(245,179,1,0.45)'
-            }}
-          >
-            {'▲ '}
-            {face.bonus}
-          </p>
-        )}
+                <ArrowRight
+                  size={22}
+                  strokeWidth={3}
+                  style={{ color: theme.glyphInk, opacity: 0.45, transform: 'rotate(90deg)' }}
+                />
+              ))}
+            <div className="flex items-center justify-center gap-3">
+              {row.steps.map((step, i) => {
+                const previous = row.steps[i - 1];
+                const needsArrow = i > 0 && !step.separator && !(previous && previous.separator);
+                return (
+                  <React.Fragment key={`${action.id}-${side}-${rowIdx}-${i}`}>
+                    {needsArrow && (
+                      <ArrowRight size={18} strokeWidth={3} style={{ color: theme.glyphInk, opacity: 0.55, flexShrink: 0 }} />
+                    )}
+                    <ActionStep step={step} theme={theme} glyphSize={glyphSize} />
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </React.Fragment>
+        ))}
       </div>
     </div>
   );
@@ -1051,6 +1322,12 @@ export default function ColonyCollapseBoardAssets() {
       triggerDownload(dataUrl, 'ColonyCollapse_Board_7across.png');
     });
 
+  const exportDisplayBoard = () =>
+    runExport('display', async () => {
+      const dataUrl = await renderNodeToPng('cc-display-export', { transparent: false });
+      triggerDownload(dataUrl, 'ColonyCollapse_TileDisplay.png');
+    });
+
   const exportSheet = (nodeId, fileName) =>
     runExport(nodeId, async () => {
       const dataUrl = await renderNodeToPng(nodeId, { transparent: false });
@@ -1092,6 +1369,7 @@ export default function ColonyCollapseBoardAssets() {
   const assetTabs = [
     { id: 'tiles', label: 'Hex Tiles', sub: '15 double-sided', Icon: Hexagon },
     { id: 'board', label: 'Board', sub: '37 cells, 7 across', Icon: Grid3x3 },
+    { id: 'display', label: 'Display', sub: '6-hex tile display', Icon: Hexagon },
     { id: 'actions', label: 'Action Tiles', sub: '7 double-sided', Icon: LayoutGrid },
     { id: 'cards', label: 'Cards', sub: '36 ability cards', Icon: Layers },
     { id: 'tracks', label: 'Tokens & Boards', sub: 'tracks, discs, player boards', Icon: Circle }
@@ -1373,6 +1651,29 @@ export default function ColonyCollapseBoardAssets() {
           </section>
         )}
 
+        {/* ---------------- DISPLAY ---------------- */}
+        {activeAsset === 'display' && (
+          <section>
+            <div className="flex flex-wrap items-center gap-3 mb-5 no-print">
+              <button
+                onClick={exportDisplayBoard}
+                disabled={isBusy}
+                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm flex items-center gap-2 cursor-pointer transition-colors"
+              >
+                <Download className="w-4 h-4" /> Display PNG ({DISPLAY_BOARD_SIZE * EXPORT_PIXEL_RATIO}px)
+              </button>
+              <p className="text-xs text-slate-500 max-w-md">
+                Six empty hex slots for the display, a dashed spot for the shared pawn between
+                each pair, and a small arrow off each hex naming the district it feeds.
+              </p>
+            </div>
+
+            <div className="max-w-3xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-4">
+              <DisplayBoardSVG />
+            </div>
+          </section>
+        )}
+
         {/* ---------------- ACTION TILES ---------------- */}
         {activeAsset === 'actions' && (
           <section>
@@ -1391,12 +1692,25 @@ export default function ColonyCollapseBoardAssets() {
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"
               >
-                <FileImage className="w-4 h-4" /> Reference sheet
+                <FileImage className="w-4 h-4" /> Tile faces sheet
+              </button>
+              <button
+                onClick={() =>
+                  exportSheet('cc-icon-legend', 'ColonyCollapse_ActionTiles_IconReference.png')
+                }
+                disabled={isBusy}
+                className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"
+              >
+                <Hexagon className="w-4 h-4" /> Icon reference sheet
               </button>
               <p className="text-xs text-slate-500 max-w-lg">
-                Left column is the basic side, right column is what the tile shows once flipped to
-                upgraded, plus what N means for that action.
+                Tiles carry icons only now, no rule text - the icon reference sheet below is
+                where every symbol actually gets explained.
               </p>
+            </div>
+
+            <div className="mb-6 bg-slate-900 border border-slate-800 rounded-2xl p-4 overflow-x-auto">
+              <ActionIconLegendSheet />
             </div>
 
             <div className="flex flex-col gap-6">
@@ -1458,6 +1772,10 @@ export default function ColonyCollapseBoardAssets() {
           <BoardSVG cells={boardGeometry.cells} borderSegments={boardGeometry.borderSegments} />
         </div>
 
+        <div id="cc-display-export" style={{ width: DISPLAY_BOARD_SIZE, height: DISPLAY_BOARD_SIZE }}>
+          <DisplayBoardSVG />
+        </div>
+
         {['A', 'B'].map((side) => (
           <div
             key={`sheet-${side}`}
@@ -1494,6 +1812,10 @@ export default function ColonyCollapseBoardAssets() {
               <ActionTileCard key={`sheet-${action.id}-${side}`} action={action} side={side} size={ACTION_EXPORT_PX} />
             ))
           )}
+        </div>
+
+        <div id="cc-icon-legend">
+          <ActionIconLegendSheet />
         </div>
       </div>
 

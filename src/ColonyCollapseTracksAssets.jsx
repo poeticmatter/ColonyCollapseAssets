@@ -35,6 +35,41 @@ const GOLD_DEEP = '#8A5A00';
 const GOLD_INK = '#3F2D07';
 const CELL_NUMERAL_LIGHT = '#FBF3E4';
 
+// A neutral pewter tone for tokens that belong to no player and no issue -
+// the shared pawn on the tile display, distinct from the gold "round" family.
+const NEUTRAL_FILL = '#C7CDD9';
+const NEUTRAL_DEEP = '#5C6578';
+const NEUTRAL_INK = '#1F2937';
+
+// The same gradient and dice-pip badges used for the round-number markers on
+// the board, so "round 3" reads identically wherever it appears.
+const ROUND_NUMBER_FILLS = ['#8A5A00', '#A9740A', '#C48D15', '#DFA820', '#F5B301'];
+const ROUND_PIP_LAYOUTS = [
+  [[0, 0]],
+  [
+    [-13, -13],
+    [13, 13]
+  ],
+  [
+    [-13, -13],
+    [0, 0],
+    [13, 13]
+  ],
+  [
+    [-13, -13],
+    [13, -13],
+    [-13, 13],
+    [13, 13]
+  ],
+  [
+    [-13, -13],
+    [13, -13],
+    [0, 0],
+    [-13, 13],
+    [13, 13]
+  ]
+];
+
 // --- 2. PLAYER TOKENS -----------------------------------------------------
 // One disc shape serves every token: a player's marker (the bee mark, the
 // same one at the centre of the board), the shared control marker (flag),
@@ -93,6 +128,20 @@ const RoundMarkerSVG = ({ className = '' }) => {
     <DiscTokenSVG fillHex={GOLD_FILL} deepHex={GOLD_DEEP} className={className}>
       <g transform={`translate(${glyphPos}, ${glyphPos})`}>
         <Hourglass size={glyphSize} strokeWidth={2.3} color={GOLD_INK} />
+      </g>
+    </DiscTokenSVG>
+  );
+};
+
+// The shared pawn that moves around the tile display - a bee mark, but
+// pewter-toned rather than any player's color, since it belongs to no one.
+const SharedPawnSVG = ({ className = '' }) => {
+  const glyphSize = 128;
+  const glyphPos = (TOKEN_SIZE - glyphSize) / 2;
+  return (
+    <DiscTokenSVG fillHex={NEUTRAL_FILL} deepHex={NEUTRAL_DEEP} className={className}>
+      <g transform={`translate(${glyphPos}, ${glyphPos})`}>
+        <BeeMark size={glyphSize} bodyColor={NEUTRAL_INK} stripeColor={NEUTRAL_FILL} />
       </g>
     </DiscTokenSVG>
   );
@@ -334,7 +383,7 @@ const RoundTrackContent = () => {
             y={trackY}
             width={ROUND_TRACK_CELL_W}
             height={ROUND_TRACK_CELL_H}
-            fill={idx % 2 === 0 ? GOLD_FILL : GOLD_MID}
+            fill={ROUND_NUMBER_FILLS[idx]}
           />
         ))}
       </g>
@@ -349,6 +398,8 @@ const RoundTrackContent = () => {
       {Array.from({ length: ROUND_TRACK_MAX }).map((_, idx) => {
         const value = idx + 1;
         const cellX = cellsLeftX + idx * ROUND_TRACK_CELL_W;
+        const cellCenterX = cellX + ROUND_TRACK_CELL_W / 2;
+        const cellCenterY = trackY + ROUND_TRACK_CELL_H / 2;
         return (
           <g key={`rt-${value}`}>
             {idx > 0 && (
@@ -362,17 +413,17 @@ const RoundTrackContent = () => {
                 strokeWidth="2"
               />
             )}
-            <text
-              x={cellX + ROUND_TRACK_CELL_W / 2}
-              y={trackY + ROUND_TRACK_CELL_H / 2 + 12}
-              textAnchor="middle"
-              fontFamily="ui-sans-serif, system-ui, sans-serif"
-              fontSize="40"
-              fontWeight="800"
-              fill={GOLD_INK}
-            >
-              {value}
-            </text>
+            {/* Dice pips, same as the round-number badges on the board */}
+            {ROUND_PIP_LAYOUTS[idx].map(([dx, dy], pipIdx) => (
+              <circle
+                key={pipIdx}
+                cx={cellCenterX + dx * 1.7}
+                cy={cellCenterY + dy * 1.7}
+                r="9"
+                fill={GOLD_INK}
+                stroke="none"
+              />
+            ))}
           </g>
         );
       })}
@@ -613,6 +664,12 @@ export default function ColonyCollapseTracksAssets() {
       nodeId: 'cc-token-round-marker',
       fileName: 'ColonyCollapse_Token_RoundMarker.png',
       label: 'Round marker'
+    },
+    {
+      key: 'shared-pawn',
+      nodeId: 'cc-token-shared-pawn',
+      fileName: 'ColonyCollapse_Token_SharedPawn.png',
+      label: 'Shared pawn'
     }
   ];
 
@@ -632,7 +689,7 @@ export default function ColonyCollapseTracksAssets() {
               <Circle className="w-6 h-6" /> Colony Collapse — Tokens, Tracks &amp; Player Boards
             </h1>
             <p className="text-sm text-slate-400 mt-1">
-              Player discs, control markers and the round marker · one combined tracks board
+              Player discs, control markers, the round marker and the shared pawn · one combined tracks board
               (issues 1–8, points 1–30, rounds 1–5) · 4 player boards with a 4-slot action row.
             </p>
           </div>
@@ -718,7 +775,7 @@ export default function ColonyCollapseTracksAssets() {
               ))}
             </div>
 
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Round marker</h2>
+            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Neutral markers</h2>
             <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-5">
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col items-center gap-2">
                 <div className="w-full aspect-square">
@@ -730,6 +787,18 @@ export default function ColonyCollapseTracksAssets() {
                   className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                 >
                   <Download className="w-3 h-3 inline mr-1" /> Round marker
+                </button>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col items-center gap-2">
+                <div className="w-full aspect-square">
+                  <SharedPawnSVG />
+                </div>
+                <button
+                  onClick={() => exportNode('cc-token-shared-pawn', 'ColonyCollapse_Token_SharedPawn.png')}
+                  disabled={isBusy}
+                  className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
+                >
+                  <Download className="w-3 h-3 inline mr-1" /> Shared pawn
                 </button>
               </div>
             </div>
@@ -811,6 +880,9 @@ export default function ColonyCollapseTracksAssets() {
         ))}
         <div id="cc-token-round-marker" style={{ width: TOKEN_SIZE, height: TOKEN_SIZE }}>
           <RoundMarkerSVG />
+        </div>
+        <div id="cc-token-shared-pawn" style={{ width: TOKEN_SIZE, height: TOKEN_SIZE }}>
+          <SharedPawnSVG />
         </div>
 
         <div id="cc-tracks-board" style={{ width: TRACKS_BOARD_WIDTH, height: TRACKS_BOARD_HEIGHT }}>
