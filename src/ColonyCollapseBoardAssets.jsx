@@ -630,26 +630,6 @@ const pointsOnRing = (count, ringR, startDeg = -90) =>
     return { x: 24 + ringR * Math.cos(angle), y: 24 + ringR * Math.sin(angle), angle };
   });
 
-// A ring segment with an arrowhead, centred on (cx, cy) - `startDeg` is where
-// it begins (0 = straight up) and `sweepDeg` is how far it travels clockwise.
-const ringArrow = (cx, cy, radius, startDeg, sweepDeg) => {
-  const toRad = (deg) => (deg * Math.PI) / 180;
-  const pointAt = (deg) => ({ x: cx + radius * Math.sin(toRad(deg)), y: cy - radius * Math.cos(toRad(deg)) });
-  const start = pointAt(startDeg);
-  const end = pointAt(startDeg + sweepDeg);
-  const largeArcFlag = sweepDeg > 180 ? 1 : 0;
-  const path = `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
-  const endRad = toRad(startDeg + sweepDeg);
-  const tangent = { x: Math.cos(endRad), y: Math.sin(endRad) };
-  const perp = { x: -tangent.y, y: tangent.x };
-  const apex = { x: end.x + 5 * tangent.x, y: end.y + 5 * tangent.y };
-  const base = { x: end.x - 2.2 * tangent.x, y: end.y - 2.2 * tangent.y };
-  const arrow = [apex, { x: base.x + 2.8 * perp.x, y: base.y + 2.8 * perp.y }, { x: base.x - 2.8 * perp.x, y: base.y - 2.8 * perp.y }]
-    .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
-    .join(' ');
-  return { path, arrow };
-};
-
 // A pair of stacked upward chevrons sized to a hex of radius r, used to mark
 // a tile as "rallying" - shared so the single-hex and three-hex versions
 // climb in exactly the same proportions.
@@ -680,22 +660,17 @@ const equalsPair = (cx, cy, r) => {
 
 // The display: six hexes in a circle with one shared pawn moving around them.
 // The orbit arrow covers about a third of the ring, clear of the hexes.
-const DisplayGlyph = ({ size = 48 }) => {
-  const orbit = ringArrow(24, 24, 22, 0, 120);
-  return (
-    <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-      {pointsOnRing(6, 12.5).map((pos, idx) => (
-        <polygon
-          key={`display-hex-${idx}`}
-          points={hexPointsAt(pos.x, pos.y, 5.3)}
-          fill={idx === 0 ? 'currentColor' : 'none'}
-        />
-      ))}
-      <path d={orbit.path} strokeWidth="2" />
-      <polygon points={orbit.arrow} fill="currentColor" stroke="none" />
-    </svg>
-  );
-};
+const DisplayGlyph = ({ size = 48 }) => (
+  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+    {pointsOnRing(6, 16).map((pos, idx) => (
+      <polygon key={`display-hex-${idx}`} points={hexPointsAt(pos.x, pos.y, 5.5)} />
+    ))}
+    {/* A miniature version of the dial token itself, aimed at one slot */}
+    <circle cx="24" cy="24" r="7" />
+    <polygon points="24,17 19.5,23 28.5,23" fill="currentColor" stroke="none" />
+    <circle cx="24" cy="24" r="2" fill="currentColor" stroke="none" />
+  </svg>
+);
 
 // The bare track ladder shared by every "advance an issue" glyph below.
 // `x` lets it sit on either side of whatever it's paired with.
@@ -714,13 +689,14 @@ const TrackLadder = ({ x = 8 }) => (
 // capped by a line ("up to a limit"), with how far - N or 2N - named above it.
 const IssueGlyph = ({ size = 48, label }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+    <TrackLadder x={2} />
     {label && (
       <text
-        x="24"
-        y="10"
+        x="35"
+        y="9"
         textAnchor="middle"
         fontFamily="ui-sans-serif, system-ui, sans-serif"
-        fontSize="13"
+        fontSize="12"
         fontWeight="800"
         fill="currentColor"
         stroke="none"
@@ -728,9 +704,9 @@ const IssueGlyph = ({ size = 48, label }) => (
         {label}
       </text>
     )}
-    <path d="M 11 15 L 37 15" strokeWidth="3" />
-    <path d="M 24 42 L 24 19" strokeWidth="3" />
-    <path d="M 16.5 26.5 L 24 19 L 31.5 26.5" strokeWidth="3" />
+    <path d="M 26 15 L 44 15" strokeWidth="2.6" />
+    <path d="M 35 42 L 35 19" strokeWidth="2.6" />
+    <path d="M 29.5 25 L 35 19 L 40.5 25" strokeWidth="2.6" />
   </svg>
 );
 
@@ -788,6 +764,21 @@ const RallyOneGlyph = ({ size = 48 }) => {
       <polygon points={hexPointsAt(24, 24, 16)} />
       <path d={upper} strokeWidth="2.6" />
       <path d={lower} strokeWidth="2.6" />
+    </svg>
+  );
+};
+
+// Rally the single tile next to your pawn: the same rally hex, with a dot
+// on one corner marking the junction where the pawn sits.
+const RallyAdjacentGlyph = ({ size = 48 }) => {
+  const [upper, lower] = chevronPair(24, 24, 16);
+  const pawnVertex = hexVerticesAt(24, 24, 16)[3];
+  return (
+    <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+      <polygon points={hexPointsAt(24, 24, 16)} />
+      <path d={upper} strokeWidth="2.6" />
+      <path d={lower} strokeWidth="2.6" />
+      <circle cx={pawnVertex.x} cy={pawnVertex.y} r="3.4" fill="currentColor" stroke="none" />
     </svg>
   );
 };
@@ -871,19 +862,6 @@ const DrawGlyph = ({ size = 48 }) => (
 
 const RepeatGlyph = ({ size = 48 }) => <RotateCcw size={size} strokeWidth={2} />;
 
-// A small flowchart-style self-loop: a curved arrow leaving a shape and
-// re-entering it, rather than a second boxed icon - used as a corner badge
-// on whatever icon it means "do this again".
-const SelfLoopGlyph = ({ size = 22 }) => {
-  const orbit = ringArrow(11, 11, 8, -50, 300);
-  return (
-    <svg viewBox="0 0 22 22" width={size} height={size}>
-      <path d={orbit.path} stroke="currentColor" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-      <polygon points={orbit.arrow} fill="currentColor" />
-    </svg>
-  );
-};
-
 const ACTION_GLYPHS = {
   display: DisplayGlyph,
   issue: IssueGlyph,
@@ -892,6 +870,7 @@ const ACTION_GLYPHS = {
   flip: FlipGlyph,
   place: PlaceGlyph,
   rallyTile: RallyOneGlyph,
+  rallyAdjacent: RallyAdjacentGlyph,
   rallyJunction: RallyJunctionGlyph,
   rallyJunctionEqual: RallyJunctionEqualGlyph,
   junction: JunctionGlyph,
@@ -904,37 +883,178 @@ const ACTION_GLYPHS = {
 // The tiles themselves carry no words now - this sheet is where the icon
 // language actually gets explained, once, in plain sentences.
 const ICON_LEGEND_ENTRIES = [
-  { key: 'display', label: 'The display', description: 'Move the pawn up to N spaces around the six-hex display.' },
-  { key: 'issue', label: 'Advance a track', description: 'Advance any one issue track of your choice.' },
-  { key: 'issueTile', label: "A tile's issue", description: "Advance the track matching that tile's color." },
-  { key: 'issueCard', label: "A card's issue", description: "Advance the track matching that card's color." },
-  { key: 'flip', label: 'Flip', description: 'Flip a tile over to its other color.' },
-  { key: 'place', label: 'Place', description: 'Place a tile onto an empty slot on the board.' },
-  { key: 'rallyTile', label: 'Rally one tile', description: 'Rally a single tile.' },
+  {
+    key: 'display',
+    category: 'Turn & Movement',
+    label: 'Colonists priority',
+    description: 'Move the dial up to N colonist slots around the ring.'
+  },
+  {
+    key: 'junction',
+    category: 'Turn & Movement',
+    label: 'Move your pawn',
+    description: 'Move the shared pawn along tile edges, junction to junction.'
+  },
+  {
+    key: 'issueCard',
+    category: 'Advance a Track',
+    label: "A card's issue",
+    description: "Advance the track matching that card's color."
+  },
+  {
+    key: 'issueTile',
+    category: 'Advance a Track',
+    label: "A colonist's issue",
+    description: "Advance the track matching that colonist's color."
+  },
+  {
+    key: 'issue',
+    category: 'Advance a Track',
+    label: 'Advance with a limit',
+    description: 'Advance any one issue track of your choice, up to the value shown.'
+  },
+  {
+    key: 'flip',
+    category: 'Board Actions',
+    label: 'Flip a colonist',
+    description: 'Flip a colonist tile over to its other color.'
+  },
+  {
+    key: 'place',
+    category: 'Board Actions',
+    label: 'Place a colonist',
+    description: 'Place a colonist tile onto an empty slot on the board.'
+  },
+  {
+    key: 'rallyTile',
+    category: 'Rally',
+    label: 'Rally one tile',
+    description: 'Rally a single tile.'
+  },
+  {
+    key: 'rallyAdjacent',
+    category: 'Rally',
+    label: 'Rally, adjacent to pawn',
+    description: 'Rally the single tile at the junction where your pawn sits.'
+  },
   {
     key: 'rallyJunction',
+    category: 'Rally',
     label: 'Rally a junction',
     description: 'Rally the three tiles at one junction. Chevrons: you must be ahead on that issue.'
   },
   {
     key: 'rallyJunctionEqual',
+    category: 'Rally',
     label: 'Rally, ties count',
     description: 'The same rally, but a tie on that issue is enough - you don’t need to be strictly ahead.'
   },
-  { key: 'junction', label: 'Move the pawn', description: 'Move the shared pawn along tile edges, junction to junction.' },
-  { key: 'cards', label: 'Play a card', description: 'Play a card from the numbered display.' },
-  { key: 'draw', label: 'Draw / look', description: 'Draw from the deck, or look at its top card, and keep one.' },
-  { key: 'repeat', label: 'Repeat', description: 'Repeat your previous action.' }
+  {
+    key: 'cards',
+    category: 'Cards',
+    label: 'Play a card',
+    description: 'Play a card from the numbered display.'
+  },
+  {
+    key: 'draw',
+    category: 'Cards',
+    label: 'Draw / look',
+    description: 'Draw from the deck, or look at its top card, and keep one.'
+  },
+  {
+    key: 'repeat',
+    category: 'Other',
+    label: 'Repeat',
+    description: 'Repeat your previous action.'
+  }
 ];
 
 const ICON_LEGEND_CONVENTIONS = [
-  { label: 'Arrow →', description: 'Do the step before the arrow, then the one after it.' },
-  { label: 'Down arrow', description: 'Same meaning as → - the sequence just wrapped onto a second row.' },
-  { label: '/ between icons', description: 'Choose one of the two - either icon, your pick.' },
-  { label: 'Boxed value', description: 'A fixed number or word (like "N = 1") - not the tile’s own strength.' },
-  { label: 'Small loop badge', description: 'Do the icon it’s attached to repeatedly - the number above it is how many times.' },
-  { label: 'Corner triangle', description: 'This is the tile’s upgraded side.' }
+  { type: 'arrow-right', description: 'Perform the left action, then the right action.' },
+  { type: 'arrow-down', description: 'Same meaning as → - the sequence just wrapped onto a second row.' },
+  { type: 'slash', description: 'Perform the left action, or the right action.' },
+  { type: 'chip', description: 'A fixed number or word (like "N = 1") - not the tile’s own strength.' },
+  { type: 'square', description: 'A single action, done once.' },
+  { type: 'circle', description: 'Repeat this step N times - the notch at the top marks it as a repeat.' },
+  { type: 'triangle', description: 'This is the tile’s upgraded side.' }
 ];
+
+// Draws the actual shape each convention refers to, so the sheet shows the
+// rule instead of just describing it.
+const ConventionSwatch = ({ type }) => {
+  const boxStyle = {
+    borderColor: '#22304A',
+    background: '#FFFFFF',
+    color: '#22304A'
+  };
+  const swatchBox = (className, content) => (
+    <span className={`flex items-center justify-center shrink-0 ${className}`} style={{ width: 56, height: 56 }}>
+      {content}
+    </span>
+  );
+  const demoSquare = () => <span className="rounded-xl border-2 shrink-0" style={{ ...boxStyle, width: 48, height: 48 }} />;
+
+  if (type === 'arrow-right' || type === 'slash') {
+    const connector = type === 'arrow-right'
+      ? <ArrowRight size={26} strokeWidth={3} color="#22304A" />
+      : <span style={{ fontSize: 28, fontWeight: 900, color: '#22304A', lineHeight: 1 }}>/</span>;
+    return (
+      <span className="flex items-center gap-2 shrink-0" style={{ height: 56 }}>
+        {demoSquare()}
+        {connector}
+        {demoSquare()}
+      </span>
+    );
+  }
+  if (type === 'arrow-down') {
+    return swatchBox('', <ArrowRight size={28} strokeWidth={3} color="#22304A" style={{ transform: 'rotate(90deg)' }} />);
+  }
+  if (type === 'chip') {
+    return swatchBox(
+      '',
+      <span
+        className="rounded-lg border-2 flex flex-col items-center justify-center gap-0.5"
+        style={{ ...boxStyle, width: 48, height: 48 }}
+      >
+        <span className="text-[15px] font-black leading-none">N = 1</span>
+      </span>
+    );
+  }
+  if (type === 'square') {
+    return swatchBox('', demoSquare());
+  }
+  if (type === 'circle') {
+    return (
+      <span className="relative flex items-center justify-center shrink-0" style={{ width: 56, height: 56 }}>
+        <span className="border-2" style={{ ...boxStyle, width: 48, height: 48, borderRadius: '9999px' }} />
+        <svg viewBox="0 0 20 20" width="36" height="36" style={{ position: 'absolute', top: -10.4, left: '50%', transform: 'translateX(-50%)' }}>
+          <path d="M 6 13 L 11 8 L 6 3" stroke={boxStyle.borderColor} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </span>
+    );
+  }
+  // triangle - filled with the upgraded side's own color, so the swatch
+  // matches the actual corner badge on an upgraded tile.
+  return swatchBox(
+    'rounded-xl',
+    <span className="rounded-xl flex items-center justify-center" style={{ width: 48, height: 48, background: ACTION_SIDE_THEME.upgraded.headerBg }}>
+      <Triangle size={26} fill="#FFFFFF" color="#FFFFFF" strokeWidth={0} />
+    </span>
+  );
+};
+
+// Consecutive entries sharing a category become one visual cluster - the
+// three rally icons and the three "advance a track" icons each stay
+// together as a group rather than scattering through a flat grid.
+const ICON_LEGEND_GROUPS = ICON_LEGEND_ENTRIES.reduce((groups, entry) => {
+  const lastGroup = groups[groups.length - 1];
+  if (lastGroup && lastGroup.category === entry.category) {
+    lastGroup.entries.push(entry);
+  } else {
+    groups.push({ category: entry.category, entries: [entry] });
+  }
+  return groups;
+}, []);
 
 const ActionIconLegendSheet = () => (
   <div
@@ -947,35 +1067,54 @@ const ActionIconLegendSheet = () => (
     </div>
     <p className="text-[15px] text-slate-400 mb-8">What each symbol on an action tile means.</p>
 
-    <div className="grid grid-cols-2 gap-x-12 gap-y-6 mb-10">
-      {ICON_LEGEND_ENTRIES.map((entry) => {
-        const Glyph = ACTION_GLYPHS[entry.key];
-        return (
-          <div key={entry.key} className="flex items-center gap-4">
-            <span
-              className="rounded-xl border-2 flex items-center justify-center shrink-0"
-              style={{ width: 78, height: 78, borderColor: '#C9BFA4', background: '#F7F2E4', color: '#22304A' }}
-            >
-              <Glyph size={54} />
-            </span>
-            <div>
-              <div className="text-[18px] font-black text-white leading-tight">{entry.label}</div>
-              <div className="text-[14px] text-slate-400 leading-snug mt-0.5">{entry.description}</div>
-            </div>
+    <div className="grid grid-cols-2 gap-6 mb-8 items-start">
+      {ICON_LEGEND_GROUPS.map((group) => (
+        <div
+          key={group.category}
+          className="rounded-2xl border-2 p-4"
+          style={{ background: '#F7F2E4', borderColor: '#22304A' }}
+        >
+          <div className="text-[13px] font-black uppercase tracking-wider mb-3" style={{ color: '#8A5A00' }}>
+            {group.category}
           </div>
-        );
-      })}
+          <div className="flex flex-col gap-4">
+            {group.entries.map((entry) => {
+              const Glyph = ACTION_GLYPHS[entry.key];
+              return (
+                <div key={entry.key} className="flex items-center gap-4">
+                  <span
+                    className="rounded-xl border-2 flex items-center justify-center shrink-0"
+                    style={{ width: 70, height: 70, borderColor: '#22304A', background: '#FFFFFF', color: '#22304A' }}
+                  >
+                    <Glyph size={48} />
+                  </span>
+                  <div>
+                    <div className="text-[17px] font-black leading-tight" style={{ color: '#22304A' }}>
+                      {entry.label}
+                    </div>
+                    <div className="text-[13px] leading-snug mt-0.5" style={{ color: '#6B5D4F' }}>
+                      {entry.description}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
 
-    <div className="pt-7 border-t border-slate-700">
-      <div className="text-[14px] font-black text-amber-400 uppercase tracking-wider mb-4">Reading the tiles</div>
-      <div className="grid grid-cols-2 gap-x-12 gap-y-3">
+    <div className="rounded-2xl border-2 p-5" style={{ background: '#F7F2E4', borderColor: '#22304A' }}>
+      <div className="text-[14px] font-black uppercase tracking-wider mb-4" style={{ color: '#8A5A00' }}>
+        Reading the tiles
+      </div>
+      <div className="grid grid-cols-2 gap-x-10 gap-y-4">
         {ICON_LEGEND_CONVENTIONS.map((item) => (
-          <div key={item.label} className="flex items-start gap-3">
-            <span className="text-[15px] font-black text-white shrink-0" style={{ width: 150 }}>
-              {item.label}
-            </span>
-            <span className="text-[14px] text-slate-400 leading-snug">{item.description}</span>
+          <div key={item.type} className="flex items-center gap-4">
+            <ConventionSwatch type={item.type} />
+            <div className="text-[13px] leading-snug" style={{ color: '#6B5D4F' }}>
+              {item.description}
+            </div>
           </div>
         ))}
       </div>
@@ -992,12 +1131,12 @@ const CC_ACTIONS = [
     name: 'Address',
     Icon: Megaphone,
     basic: {
-      rows: [{ steps: [{ glyph: 'display' }, { glyph: 'issueTile' }] }, { connector: 'then', steps: [{ glyph: 'flip' }] }],
+      rows: [{ steps: [{ glyph: 'display', repeat: true }, { glyph: 'issueTile' }] }, { connector: 'then', steps: [{ glyph: 'flip' }] }],
       text: 'Move up to N on the display. Advance that tile’s issue, then flip it.'
     },
     upgraded: {
       rows: [
-        { steps: [{ glyph: 'display' }, { glyph: 'issueTile' }] },
+        { steps: [{ glyph: 'display', repeat: true }, { glyph: 'issueTile' }] },
         { connector: 'then', steps: [{ glyph: 'flip' }, { glyph: 'place' }] }
       ],
       text: 'Move up to N on the display. Advance that tile’s issue, then flip it.',
@@ -1009,12 +1148,12 @@ const CC_ACTIONS = [
     name: 'Develop',
     Icon: Hammer,
     basic: {
-      rows: [{ steps: [{ glyph: 'display' }] }, { connector: 'then', steps: [{ glyph: 'place' }] }],
+      rows: [{ steps: [{ glyph: 'display', repeat: true }] }, { connector: 'then', steps: [{ glyph: 'place' }] }],
       text: 'Move N on the display. Place that tile on the board.'
     },
     upgraded: {
       rows: [
-        { steps: [{ glyph: 'display' }, { glyph: 'place' }] },
+        { steps: [{ glyph: 'display', repeat: true }, { glyph: 'place' }] },
         { connector: 'then', steps: [{ glyph: 'rallyTile' }] }
       ],
       text: 'Move N on the display. Place that tile on the board.',
@@ -1043,25 +1182,25 @@ const CC_ACTIONS = [
     name: 'Dance',
     Icon: Radio,
     basic: {
-      rows: [{ steps: [{ glyph: 'junction' }, { glyph: 'rallyJunction' }] }],
+      rows: [{ steps: [{ glyph: 'junction', repeat: true }, { glyph: 'rallyJunction' }] }],
       text: 'Move the pawn N junctions along tile edges, then rally the 3 adjacent tiles.'
     },
     upgraded: {
-      rows: [{ steps: [{ glyph: 'junction' }, { glyph: 'rallyJunctionEqual' }] }],
+      rows: [{ steps: [{ glyph: 'junction', repeat: true }, { glyph: 'rallyJunctionEqual' }] }],
       text: 'Move the pawn N junctions along tile edges, then rally the 3 adjacent tiles.',
       bonus: 'You may rally issues on which you are tied.'
     }
   },
   {
-    id: 'larvae',
-    name: 'Larvae',
+    id: 'intern',
+    name: 'Intern',
     Icon: GraduationCap,
     basic: {
-      rows: [{ steps: [{ glyph: 'repeat' }] }, { connector: 'then', steps: [{ chip: ['N = 1', 'Basic'] }] }],
+      rows: [{ steps: [{ glyph: 'repeat' }, { chip: ['N = 1', 'Basic'] }] }],
       text: 'Repeat your previous action at strength 1, using its basic side.'
     },
     upgraded: {
-      rows: [{ steps: [{ glyph: 'repeat' }] }, { connector: 'then', steps: [{ chip: ['N = 1'] }] }],
+      rows: [{ steps: [{ glyph: 'repeat' }, { chip: ['N = 1'] }] }],
       text: 'Repeat your previous action at strength 1.',
       bonus: 'You may use its upgraded side.'
     }
@@ -1071,16 +1210,13 @@ const CC_ACTIONS = [
     name: 'Media',
     Icon: Newspaper,
     basic: {
-      rows: [{ steps: [{ glyph: 'flip', loop: 'N' }] }],
+      rows: [{ steps: [{ glyph: 'flip', repeat: true }] }],
       text: 'Flip N tiles.'
     },
     upgraded: {
-      rows: [
-        { steps: [{ glyph: 'flip' }, { glyph: 'draw' }] },
-        { connector: 'then', steps: [{ glyph: 'cards' }, { separator: '/' }, { glyph: 'issueCard' }] }
-      ],
-      text: 'Flip N tiles, then look at the top card of the deck.',
-      bonus: 'Play it, or discard it to advance the issue matching its color.'
+      rows: [{ steps: [{ glyph: 'flip', repeat: true }, { glyph: 'rallyAdjacent' }] }],
+      text: 'Flip N tiles.',
+      bonus: 'Then rally the tile adjacent to your pawn.'
     }
   },
   {
@@ -1109,7 +1245,7 @@ const ACTION_TILE_SHARED = {
   headerInk: '#FFFFFF',
   glyphInk: '#22304A',
   stepBg: '#FFFFFF',
-  stepBorder: '#C9BFA4'
+  stepBorder: '#22304A'
 };
 
 const ACTION_SIDE_THEME = {
@@ -1166,27 +1302,40 @@ const ActionStep = ({ step, theme, glyphSize }) => {
   }
 
   const Glyph = ACTION_GLYPHS[step.glyph];
-  const boxSize = glyphSize + 24;
+  const isRepeat = Boolean(step.repeat);
   return (
-    <span className="relative shrink-0" style={{ width: boxSize, height: boxSize }}>
-      <span
-        className="rounded-xl border-2 flex items-center justify-center w-full h-full"
-        style={{
-          color: theme.glyphInk,
-          borderColor: theme.stepBorder,
-          background: theme.stepBg
-        }}
-      >
-        <Glyph size={glyphSize} label={step.label} />
-      </span>
-      {step.loop && (
-        <span
-          className="absolute flex flex-col items-center"
-          style={{ top: -16, right: -14, color: theme.glyphInk }}
+    <span
+      className="relative flex items-center justify-center shrink-0"
+      style={{
+        color: theme.glyphInk,
+        background: theme.stepBg,
+        borderWidth: '2px',
+        borderStyle: 'solid',
+        borderColor: theme.stepBorder,
+        borderRadius: isRepeat ? '9999px' : '0.75rem',
+        width: glyphSize + 24,
+        height: glyphSize + 24
+      }}
+    >
+      <Glyph size={glyphSize} label={step.label} />
+      {/* A step done once per N, marked by rounding the frame into a circle
+          with a small clockwise chevron notched into its rim. */}
+      {isRepeat && (
+        <svg
+          viewBox="0 0 20 20"
+          width="36"
+          height="36"
+          style={{ position: 'absolute', top: -15, left: '50%', transform: 'translateX(-50%)' }}
         >
-          <span className="text-[13px] font-black leading-none mb-0.5">{step.loop}</span>
-          <SelfLoopGlyph size={22} />
-        </span>
+          <path
+            d="M 6 13 L 11 8 L 6 3"
+            stroke={theme.stepBorder}
+            strokeWidth="2"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       )}
     </span>
   );
@@ -1452,7 +1601,7 @@ export default function ColonyCollapseBoardAssets() {
   const assetTabs = [
     { id: 'tiles', label: 'Hex Tiles', sub: '15 double-sided', Icon: Hexagon },
     { id: 'board', label: 'Board', sub: '37 cells, 7 across', Icon: Grid3x3 },
-    { id: 'display', label: 'Display', sub: '6-hex tile display', Icon: Hexagon },
+    { id: 'display', label: 'Colonists', sub: '6-hex tile display', Icon: Hexagon },
     { id: 'actions', label: 'Action Tiles', sub: '7 double-sided', Icon: LayoutGrid },
     { id: 'cards', label: 'Cards', sub: '36 ability cards', Icon: Layers },
     { id: 'tracks', label: 'Tokens & Boards', sub: 'tracks, discs, player boards', Icon: Circle }
@@ -1744,7 +1893,7 @@ export default function ColonyCollapseBoardAssets() {
                   disabled={isBusy}
                   className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm flex items-center gap-2 cursor-pointer transition-colors"
                 >
-                  <Download className="w-4 h-4" /> Display Board PNG ({DISPLAY_BOARD_SIZE * EXPORT_PIXEL_RATIO}px)
+                  <Download className="w-4 h-4" /> Colonists Board PNG ({DISPLAY_BOARD_SIZE * EXPORT_PIXEL_RATIO}px)
                 </button>
                 <button
                   onClick={exportDisplayBoardWithDial}
@@ -1811,11 +1960,9 @@ export default function ColonyCollapseBoardAssets() {
               <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                 <div>
                   <h2 className="text-lg font-black text-amber-400 flex items-center gap-2">
-                    <Compass className="w-5 h-5" /> Dial Token
+                    <Compass className="w-5 h-5" /> Colonists Priority
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Sits in the display board's center socket. Rotate the whole token to aim it at any slot.
-                  </p>
+                  <p className="text-xs text-slate-400 mt-1">Turn colonist priority dial.</p>
                 </div>
                 <button
                   onClick={exportDialToken}
