@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Package, LayoutGrid, Circle, Flag, Hourglass, Star, ArrowRight } from 'lucide-react';
+import { Download, Package, LayoutGrid, Circle, Flag, Hourglass, Star, ArrowRight, Triangle } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import JSZip from 'jszip';
 import {
@@ -153,8 +153,11 @@ const SharedPawnSVG = ({ className = '' }) => {
 // standalone wrapper below, but the combined board places it directly via a
 // translate, so the two never drift out of sync.
 const ISSUE_TRACK_MAX = 8;
-const ISSUE_TRACK_CELL_W = 280;
-const ISSUE_TRACK_CELL_H = 80;
+// Exported so the action-tile upgrade markers (ColonyCollapseBoardAssets.jsx)
+// can be sized to exactly match a track cell - they're meant to sit on top
+// of the 3rd cell once a colonist reaches it.
+export const ISSUE_TRACK_CELL_W = 280;
+export const ISSUE_TRACK_CELL_H = 80;
 const ISSUE_TRACK_HEADER_H = 120;
 const ISSUE_TRACK_MARGIN = 20;
 const ISSUE_TRACK_WIDTH = ISSUE_TRACK_CELL_W + ISSUE_TRACK_MARGIN * 2;
@@ -244,6 +247,16 @@ const IssueTrackContent = ({ issueColor }) => {
             >
               {value}
             </text>
+            {/* Slot 3 is where an action-tile upgrade marker gets placed - the gold
+                triangle badge is the same "upgraded" glyph used on the action tiles. */}
+            {value === 3 && (
+              <g transform={`translate(${trackX + ISSUE_TRACK_CELL_W - 44}, ${cellMidY})`}>
+                <circle r="24" fill={GOLD_FILL} stroke={GOLD_DEEP} strokeWidth="3" />
+                <g transform="translate(-12, -12)">
+                  <Triangle size={24} fill={GOLD_INK} color={GOLD_INK} strokeWidth={0} />
+                </g>
+              </g>
+            )}
           </g>
         );
       })}

@@ -7,7 +7,10 @@ import {
 import { toPng } from 'html-to-image';
 import JSZip from 'jszip';
 import ColonyCollapseAssets from './ColonyCollapseAssets.jsx';
-import ColonyCollapseTracksAssets from './ColonyCollapseTracksAssets.jsx';
+import ColonyCollapseTracksAssets, {
+  ISSUE_TRACK_CELL_W,
+  ISSUE_TRACK_CELL_H
+} from './ColonyCollapseTracksAssets.jsx';
 import BeeMark from './ColonyCollapseBeeMark.jsx';
 import {
   CC_COLOR_HEX,
@@ -1409,6 +1412,82 @@ const ActionTileCard = ({ action, side, size = 420 }) => {
   );
 };
 
+// --- 8b. ACTION UPGRADE MARKERS (issue-track slot-3 tiles) -----------------
+// Just the header strip of an action tile's upgraded side - icon, name, gold
+// theme, upgrade triangle - with no body, sized to exactly cover a single
+// issue-track cell (see the gold badge on slot 3 in ColonyCollapseTracksAssets.jsx)
+// so the marker can be dropped straight onto the board when a colonist gets there.
+const ActionUpgradeMarker = ({ action }) => {
+  const theme = ACTION_SIDE_THEME.upgraded;
+  const { Icon } = action;
+
+  return (
+    <div
+      className="flex items-center gap-3 px-4 font-sans box-border shrink-0"
+      style={{
+        width: ISSUE_TRACK_CELL_W,
+        height: ISSUE_TRACK_CELL_H,
+        background: theme.headerBg,
+        color: theme.headerInk,
+        border: `3px solid ${theme.border}`,
+        borderRadius: 12
+      }}
+    >
+      <Icon size={30} strokeWidth={2.2} />
+      <span className="text-[24px] font-black tracking-tight leading-none flex-1">
+        {action.name}
+      </span>
+      <Triangle size={20} fill={theme.headerInk} color={theme.headerInk} strokeWidth={0} />
+    </div>
+  );
+};
+
+// Uniform back for the 7 upgrade markers - identical on every one, no name or
+// icon, so a stack of them can be shuffled and drawn blind.
+const ActionUpgradeMarkerBack = () => {
+  const w = ISSUE_TRACK_CELL_W;
+  const h = ISSUE_TRACK_CELL_H;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="block">
+      <defs>
+        <linearGradient id="action-upgrade-back-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#C48D15" />
+          <stop offset="100%" stopColor="#5C3D00" />
+        </linearGradient>
+        <pattern id="action-upgrade-back-hex" width="18" height="31.18" patternUnits="userSpaceOnUse">
+          <path
+            d="M9 0 L18 5.2 L18 15.6 L9 20.8 L0 15.6 L0 5.2 Z M9 31.18 L18 25.98 L18 15.6 L9 20.8 L0 15.6 L0 25.98 Z"
+            fill="none"
+            stroke="#3F2D07"
+            strokeWidth="0.6"
+            strokeOpacity="0.55"
+          />
+        </pattern>
+        <clipPath id="action-upgrade-back-clip">
+          <rect x="1.5" y="1.5" width={w - 3} height={h - 3} rx="12" />
+        </clipPath>
+      </defs>
+      <rect x="1.5" y="1.5" width={w - 3} height={h - 3} rx="12" fill="url(#action-upgrade-back-grad)" />
+      <g clipPath="url(#action-upgrade-back-clip)">
+        <rect x="1.5" y="1.5" width={w - 3} height={h - 3} fill="url(#action-upgrade-back-hex)" />
+      </g>
+      <rect
+        x="1.5"
+        y="1.5"
+        width={w - 3}
+        height={h - 3}
+        rx="12"
+        fill="none"
+        stroke={ACTION_SIDE_THEME.upgraded.border}
+        strokeWidth="3"
+      />
+      <g transform={`translate(${w / 2 - 18}, ${h / 2 - 18})`}>
+        <BeeMark size={36} bodyColor="#3F2D07" stripeColor="#F5D98A" />
+      </g>
+    </svg>
+  );
+};
+
 // --- 9. EXPORT HELPERS ------------------------------------------------------
 const TILE_EXPORT_PX = 300;
 const DIAL_TOKEN_EXPORT_PX = 300;
@@ -1441,6 +1520,9 @@ const tileFileName = (tile, side) => {
 
 const actionFileName = (action, side) =>
   `ColonyCollapse_Action_${action.name}_${side === 'upgraded' ? 'Upgraded' : 'Basic'}.png`;
+
+const actionUpgradeMarkerFileName = (action) => `ColonyCollapse_ActionUpgradeMarker_${action.name}.png`;
+const ACTION_UPGRADE_MARKER_BACK_FILENAME = 'ColonyCollapse_ActionUpgradeMarker_Back.png';
 
 // --- 10. MAIN COMPONENT -----------------------------------------------------
 export default function ColonyCollapseBoardAssets() {
@@ -1536,6 +1618,20 @@ export default function ColonyCollapseBoardAssets() {
       triggerDownload(dataUrl, actionFileName(action, side));
     });
 
+  const exportSingleActionUpgradeMarker = (action) =>
+    runExport(`action-upgrade-${action.id}`, async () => {
+      const dataUrl = await renderNodeToPng(`cc-action-upgrade-export-${action.id}`, {
+        transparent: false
+      });
+      triggerDownload(dataUrl, actionUpgradeMarkerFileName(action));
+    });
+
+  const exportActionUpgradeMarkerBack = () =>
+    runExport('action-upgrade-back', async () => {
+      const dataUrl = await renderNodeToPng('cc-action-upgrade-back-export', { transparent: false });
+      triggerDownload(dataUrl, ACTION_UPGRADE_MARKER_BACK_FILENAME);
+    });
+
   const exportBoard = () =>
     runExport('board', async () => {
       const dataUrl = await renderNodeToPng('cc-board-export', { transparent: false });
@@ -1594,6 +1690,22 @@ export default function ColonyCollapseBoardAssets() {
       }
       const blob = await zip.generateAsync({ type: 'blob' });
       triggerDownload(URL.createObjectURL(blob), 'ColonyCollapse_ActionTiles_14_faces.zip');
+    });
+
+  const exportAllActionUpgradeMarkersZip = () =>
+    runExport('action-upgrade-zip', async () => {
+      const zip = new JSZip();
+      const folder = zip.folder('colony_collapse_action_upgrade_markers');
+      for (const action of CC_ACTIONS) {
+        const dataUrl = await renderNodeToPng(`cc-action-upgrade-export-${action.id}`, {
+          transparent: false
+        });
+        folder.file(actionUpgradeMarkerFileName(action), dataUrl.split(',')[1], { base64: true });
+      }
+      const backDataUrl = await renderNodeToPng('cc-action-upgrade-back-export', { transparent: false });
+      folder.file(ACTION_UPGRADE_MARKER_BACK_FILENAME, backDataUrl.split(',')[1], { base64: true });
+      const blob = await zip.generateAsync({ type: 'blob' });
+      triggerDownload(URL.createObjectURL(blob), 'ColonyCollapse_ActionUpgradeMarkers_7.zip');
     });
 
   const isBusy = busyLabel !== null;
@@ -2080,6 +2192,62 @@ export default function ColonyCollapseBoardAssets() {
                 </div>
               ))}
             </div>
+
+            {/* ---------------- ISSUE TRACK UPGRADE MARKERS (slot 3) ---------------- */}
+            <div className="mt-10 pt-6 border-t border-slate-800">
+              <div className="flex flex-wrap items-center gap-3 mb-5 no-print">
+                <div className="flex-1 min-w-[280px]">
+                  <h2 className="text-lg font-black text-amber-400 tracking-tight">
+                    Issue Track Upgrade Markers
+                  </h2>
+                  <p className="text-xs text-slate-500 max-w-lg mt-1">
+                    Just an action tile's upgraded header - no body - sized to exactly cover a
+                    single issue-track cell. Drop one on slot 3 (marked with the gold triangle
+                    badge on every issue track) once a colonist reaches it. All 7 share the same
+                    back below, so they can be shuffled face-down and drawn blind.
+                  </p>
+                </div>
+                <button
+                  onClick={exportAllActionUpgradeMarkersZip}
+                  disabled={isBusy}
+                  className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm flex items-center gap-2 cursor-pointer transition-colors"
+                >
+                  <Package className="w-4 h-4" /> All 7 + back (.zip)
+                </button>
+              </div>
+
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col gap-3">
+                {CC_ACTIONS.map((action) => (
+                  <div key={action.id} className="flex flex-wrap items-center gap-3">
+                    <ActionUpgradeMarker action={action} />
+                    <button
+                      onClick={() => exportSingleActionUpgradeMarker(action)}
+                      disabled={isBusy}
+                      className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-xs font-bold text-slate-300 flex items-center gap-1.5 cursor-pointer no-print transition-colors"
+                    >
+                      <Download className="w-3 h-3" /> Download
+                    </button>
+                  </div>
+                ))}
+
+                <div className="flex flex-wrap items-center gap-3 pt-3 mt-1 border-t border-slate-800">
+                  <ActionUpgradeMarkerBack />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                      Uniform back
+                    </span>
+                    <span className="text-[11px] text-slate-500">Same on all 7, for shuffling</span>
+                  </div>
+                  <button
+                    onClick={exportActionUpgradeMarkerBack}
+                    disabled={isBusy}
+                    className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-xs font-bold text-slate-300 flex items-center gap-1.5 cursor-pointer no-print transition-colors"
+                  >
+                    <Download className="w-3 h-3" /> Download
+                  </button>
+                </div>
+              </div>
+            </div>
           </section>
         )}
       </main>
@@ -2107,11 +2275,32 @@ export default function ColonyCollapseBoardAssets() {
 
         {CC_ACTIONS.flatMap((action) =>
           ['basic', 'upgraded'].map((side) => (
-            <div key={`export-action-${action.id}-${side}`} id={`cc-action-export-${action.id}-${side}`}>
+            <div
+              key={`export-action-${action.id}-${side}`}
+              id={`cc-action-export-${action.id}-${side}`}
+              style={{ width: ACTION_EXPORT_PX, height: ACTION_EXPORT_PX }}
+            >
               <ActionTileCard action={action} side={side} size={ACTION_EXPORT_PX} />
             </div>
           ))
         )}
+
+        {CC_ACTIONS.map((action) => (
+          <div
+            key={`export-action-upgrade-${action.id}`}
+            id={`cc-action-upgrade-export-${action.id}`}
+            style={{ width: ISSUE_TRACK_CELL_W, height: ISSUE_TRACK_CELL_H }}
+          >
+            <ActionUpgradeMarker action={action} />
+          </div>
+        ))}
+
+        <div
+          id="cc-action-upgrade-back-export"
+          style={{ width: ISSUE_TRACK_CELL_W, height: ISSUE_TRACK_CELL_H }}
+        >
+          <ActionUpgradeMarkerBack />
+        </div>
 
         <div id="cc-board-export" style={{ width: BOARD_WIDTH, height: BOARD_HEIGHT }}>
           <BoardSVG cells={boardGeometry.cells} borderSegments={boardGeometry.borderSegments} />

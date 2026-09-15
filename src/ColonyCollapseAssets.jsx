@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
-import { Download, Printer, LayoutGrid, Eye, Search, Sparkles, Filter, RefreshCw, Zap, RotateCw, CheckCircle2, Copy, Hexagon, Shield, Layers, HelpCircle, FileImage } from 'lucide-react';
-import { toJpeg, toPng } from 'html-to-image';
+import React, { useState, useRef, useMemo } from 'react';
+import { Download, Printer, LayoutGrid, Eye, Search, Sparkles, Filter, RefreshCw, Zap, RotateCw, CheckCircle2, Copy, Hexagon, Shield, Layers, HelpCircle, FileImage, Upload, AlertTriangle } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import {
   CC_COLOR_HEX,
   CC_COLOR_DEEP_HEX,
@@ -33,156 +33,157 @@ const COLOR_SCHEMES = Object.fromEntries(
 const CARD_TEMPLATES = [
   {
     id: 1,
-    title: "Market Overhaul",
+    title: "Comb Overturn",
     type: "Immediate",
-    effect: "Flip all tiles of one color in the market.",
+    effect: "Flip any number of tiles in the display.",
     colors: ["Clay", "Sage"],
-    flavor: "A sudden gust through the trading comb resets available faction resources."
+    flavor: "A coordinated push through the trading comb turns every open cell face up."
   },
   {
     id: 2,
-    title: "Priority Flight",
+    title: "Long Flight",
     type: "Immediate",
-    effect: "Move your turn order marker one step up from the first player.",
+    effect: "Move your player pawn to any space on the board then rally one adjacent tile.",
     colors: ["Clay", "Seafoam"],
-    flavor: "Early foragers catch the sweetest blooms before the general assembly convenes."
+    flavor: "Scouts range far beyond the usual foraging paths to stake a distant claim."
   },
   {
     id: 3,
-    title: "Comb Inversion",
+    title: "Dissident Rally",
     type: "Immediate",
-    effect: "Flip a tile on the board.",
+    effect: "Rally a tile, even if you aren't leading the issue.",
     colors: ["Clay", "Mauve"],
-    flavor: "Flipping a wax cell in the field alters regional development priorities."
+    flavor: "Even the back benches can summon support when the moment calls for it."
   },
   {
     id: 4,
-    title: "Underdog Surge",
+    title: "Speaker's Favor",
     type: "Immediate",
-    effect: "Move up on each issue where you are last or tied for last.",
+    effect: "Give the first player marker to a player of your choice.",
     colors: ["Clay", "Periwinkle"],
-    flavor: "Trailing delegates rally public momentum across contested legislative fronts."
+    flavor: "A well-placed favor buys more influence than the gavel itself."
   },
   {
     id: 5,
-    title: "Strategic Foresight",
+    title: "Ward Sweep",
     type: "Immediate",
-    effect: "Look at the top three cards of the deck, play one and discard the others.",
+    effect: "Rally all tiles in a district.",
     colors: ["Clay", "Stone"],
-    flavor: "Scouts inspect upcoming decrees and enact the most decisive motion."
+    flavor: "One motion carries the whole district, cell by cell, all at once."
   },
   {
     id: 6,
-    title: "Ballot Lock",
+    title: "Blueprint Revision",
     type: "Immediate",
-    effect: "Lock a vote.",
+    effect: "Upgrade one of your action tiles.",
     colors: ["Clay", "Sage"],
-    flavor: "Sealing the voting chamber solidifies the current democratic consensus."
+    flavor: "Revised plans catch on fast among colonies eager for an edge."
   },
   {
     id: 7,
-    title: "Burned Protocol",
+    title: "Reserve Deployment",
     type: "Immediate",
-    effect: "Use an action tile at strength 4. You may not use that tile again this game.",
+    effect: "Use a set aside action tile at strength 3.",
     colors: ["Sage", "Seafoam"],
-    flavor: "Exhausting a structural blueprint yields an explosive burst of momentum."
+    flavor: "What was shelved for later proves useful sooner than expected."
   },
   {
     id: 8,
-    title: "Grassroots Rally",
+    title: "Market Reshuffle",
     type: "Immediate",
-    effect: "Move up on each issue where you are last or tied for last.",
+    effect: "Rearrange all the tiles in the display.",
     colors: ["Sage", "Mauve"],
-    flavor: "Back-bench reformers unite to surge forward on neglected policies."
+    flavor: "A brisk reordering of the trading comb catches every rival off guard."
   },
   {
     id: 9,
-    title: "Rapid Annexation",
+    title: "Supply Refresh",
     type: "Immediate",
-    effect: "Take a PLACE action of strength 4.",
+    effect: "Replace any number of tiles in the display with tiles from the bag.",
     colors: ["Sage", "Periwinkle"],
-    flavor: "Deploying massive wax reserves to establish immediate territorial control."
+    flavor: "Stale offerings are swept aside for whatever the reserve bag yields next."
   },
   {
     id: 10,
-    title: "Tactical Placement",
+    title: "Deferred Gavel",
     type: "Ongoing",
-    effect: "PLACE: You may flip a tile before placing it.",
+    effect: "You may pass the first player token if you have it.",
     colors: ["Sage", "Stone"],
-    flavor: "Inspecting both faces of the comb tile ensures optimal municipal placement."
+    flavor: "Leading first isn't always leading best; some delegates prefer to watch and wait."
   },
   {
     id: 11,
-    title: "Pollen Preservation",
-    type: "Ongoing",
-    effect: "FLIP: You may choose to not flip the tile.",
-    colors: ["Seafoam", "Mauve"],
-    flavor: "Maintaining current orientation keeps delicate honey reserves intact."
-  },
-  {
-    id: 12,
-    title: "Reserve Activation",
-    type: "Ongoing",
-    effect: "REPEAT: You may use a tile set aside instead of repeating.",
-    colors: ["Seafoam", "Periwinkle"],
-    flavor: "Drawing upon set-aside blueprints provides versatile action alternatives."
-  },
-  {
-    id: 13,
     title: "Echoing Decree",
     type: "Ongoing",
     effect: "When you play a card with an Immediate effect, resolve it again, then discard this card.",
-    colors: ["Seafoam", "Stone"],
+    colors: ["Seafoam", "Mauve"],
     flavor: "A powerful proclamation reverberates throughout the entire hive structure."
   },
   {
-    id: 14,
-    title: "Preemptive Rotation",
+    id: 12,
+    title: "Cross-Party Address",
     type: "Ongoing",
-    effect: "FLIP: You may flip the tile before bumping and flipping.",
+    effect: "ADDRESS: You may play a card matching the tile's color instead of advancing on an issue.",
+    colors: ["Seafoam", "Periwinkle"],
+    flavor: "Shared colors make for unlikely allies at the podium."
+  },
+  {
+    id: 13,
+    title: "Site Prep",
+    type: "Ongoing",
+    effect: "DEVELOP: You may also place a tile before turning the dial.",
+    colors: ["Seafoam", "Stone"],
+    flavor: "Groundwork laid ahead of schedule keeps the dial turning smoothly."
+  },
+  {
+    id: 14,
+    title: "Policy Trade",
+    type: "Ongoing",
+    effect: "LEVERAGE: You may advance on an issue of the card's color instead of gaining the card's effect.",
     colors: ["Seafoam", "Mauve"],
-    flavor: "Rotating the wax block prior to shifting destabilizes rival momentum."
+    flavor: "Some delegates cash in favors for votes instead of votes for favors."
   },
   {
     id: 15,
-    title: "Grassroots Leverage",
+    title: "Waggle Sweep",
     type: "Ongoing",
-    effect: "You win ties with players above you on the turn order track.",
+    effect: "DANCE: You may instead rally all tiles in a district adjacent to your pawn.",
     colors: ["Mauve", "Periwinkle"],
-    flavor: "When votes are equal, lower-ranking reformers hold the deciding weight."
+    flavor: "A well-danced signal draws support from the neighboring wards."
   },
   {
     id: 16,
-    title: "Policy Pivot",
+    title: "Extra Hands",
     type: "Ongoing",
-    effect: "PLAY CARD: Instead of gaining the effect, you may discard the card to move up the issue another time.",
+    effect: "INTERN: N = 2.",
     colors: ["Mauve", "Stone"],
-    flavor: "Converting written bills directly into political influence and momentum."
+    flavor: "Two apprentices accomplish what one alone could not."
   },
   {
     id: 17,
-    title: "Voter Mandate",
+    title: "Press Cycle",
     type: "Ongoing",
-    effect: "POLLING: Once per poll, you may lock a vote in a district you won.",
+    effect: "MEDIA: You may instead replace a tile with a tile from the bag.",
     colors: ["Periwinkle", "Stone"],
-    flavor: "Securing a district victory allows delegates to lock down the ballot."
+    flavor: "A fresh headline is worth more than yesterday's stock."
   },
   {
     id: 18,
-    title: "Flight Momentum",
+    title: "Swift Withdrawal",
     type: "Ongoing",
-    effect: "Any time you overtake someone in turn order, go up another step.",
+    effect: "When another player rallies a tile you control, remove your token before they do.",
     colors: ["Periwinkle", "Stone"],
-    flavor: "Breaking ahead in the draft creates an updraft launching you further forward."
+    flavor: "Wise delegates know when to retreat before the vote turns against them."
   }
 ];
 
-// Generate full deck: 18 templates * 2 copies (different colors) = 36 total cards
-const generateDeck = () => {
+// Generate the full deck from a list of ability templates: each template
+// becomes 2 cards (one per color in its `colors` pair).
+const generateDeck = (templates) => {
   const deck = [];
   let cardIdCounter = 1;
 
-  CARD_TEMPLATES.forEach((tpl) => {
+  templates.forEach((tpl) => {
     // Copy 1 (Color A)
     deck.push({
       uniqueId: cardIdCounter++,
@@ -211,6 +212,108 @@ const generateDeck = () => {
   });
 
   return deck;
+};
+
+// --- CSV EXPORT / IMPORT FOR CARD ABILITY TEMPLATES ---
+const CSV_COLUMNS = ['id', 'title', 'type', 'effect', 'colorA', 'colorB', 'flavor'];
+const REQUIRED_CSV_COLUMNS = ['title', 'type', 'effect', 'colora', 'colorb', 'flavor'];
+
+const escapeCSVField = (value) => {
+  const str = String(value ?? '');
+  return /[",\r\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+};
+
+const templatesToCSV = (templates) => {
+  const rows = templates.map((tpl) => [tpl.id, tpl.title, tpl.type, tpl.effect, tpl.colors[0], tpl.colors[1], tpl.flavor]);
+  return [CSV_COLUMNS, ...rows].map((row) => row.map(escapeCSVField).join(',')).join('\r\n');
+};
+
+// Minimal RFC 4180 parser: handles quoted fields containing commas, quotes, and newlines.
+const parseCSV = (text) => {
+  const rows = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inQuotes) {
+      if (char === '"' && text[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        field += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ',') {
+      row.push(field);
+      field = '';
+    } else if (char === '\r') {
+      // handled by the following \n, or ignored for bare \r
+    } else if (char === '\n') {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else {
+      field += char;
+    }
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter((r) => r.length > 1 || r[0] !== '');
+};
+
+// Converts parsed CSV rows into card ability templates, validating each row.
+// Throws with a row-numbered, human-readable message on the first problem found.
+const csvRowsToTemplates = (rows) => {
+  if (rows.length < 2) {
+    throw new Error('CSV must contain a header row plus at least one card row.');
+  }
+
+  const header = rows[0].map((cell) => cell.trim().toLowerCase());
+  const missingColumns = REQUIRED_CSV_COLUMNS.filter((col) => !header.includes(col));
+  if (missingColumns.length > 0) {
+    throw new Error(`CSV is missing required column(s): ${missingColumns.join(', ')}.`);
+  }
+  const colIndex = Object.fromEntries(header.map((name, idx) => [name, idx]));
+  const readCell = (row, name) => (row[colIndex[name]] ?? '').trim();
+
+  return rows.slice(1).map((row, rowIdx) => {
+    const lineNumber = rowIdx + 2;
+    const title = readCell(row, 'title');
+    const type = readCell(row, 'type');
+    const effect = readCell(row, 'effect');
+    const colorA = readCell(row, 'colora');
+    const colorB = readCell(row, 'colorb');
+    const flavor = readCell(row, 'flavor');
+    const idRaw = colIndex.id !== undefined ? readCell(row, 'id') : '';
+
+    if (!title) throw new Error(`Row ${lineNumber}: "title" is required.`);
+    if (type !== 'Immediate' && type !== 'Ongoing') {
+      throw new Error(`Row ${lineNumber}: "type" must be "Immediate" or "Ongoing", got "${type}".`);
+    }
+    if (!effect) throw new Error(`Row ${lineNumber}: "effect" is required.`);
+    if (!CC_COLOR_ORDER.includes(colorA)) {
+      throw new Error(`Row ${lineNumber}: "colorA" must be one of ${CC_COLOR_ORDER.join(', ')} (got "${colorA}").`);
+    }
+    if (!CC_COLOR_ORDER.includes(colorB)) {
+      throw new Error(`Row ${lineNumber}: "colorB" must be one of ${CC_COLOR_ORDER.join(', ')} (got "${colorB}").`);
+    }
+    if (colorA === colorB) {
+      throw new Error(`Row ${lineNumber}: "colorA" and "colorB" must be different.`);
+    }
+
+    const parsedId = Number(idRaw);
+    const id = idRaw && !Number.isNaN(parsedId) ? parsedId : rowIdx + 1;
+
+    return { id, title, type, effect, colors: [colorA, colorB], flavor };
+  });
 };
 
 // --- CUSTOM SVG VECTOR ARTWORK COMPONENTS ---
@@ -321,7 +424,7 @@ const CardBackGraphicSVG = () => (
 );
 
 // --- MAIN SINGLE CARD RENDER COMPONENT ---
-const SingleCard = ({ card, onSelectCard }) => {
+const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
   const scheme = COLOR_SCHEMES[card.color] || COLOR_SCHEMES.Clay;
   const isImmediate = card.type === 'Immediate';
 
@@ -394,7 +497,7 @@ const SingleCard = ({ card, onSelectCard }) => {
           <span>COLONY COLLAPSE</span>
           <span className="flex items-center gap-1" style={{ color: scheme.inkHex }}>
             <IssueSymbol color={card.color} size={11} strokeWidth={2.6} colorHex={scheme.inkHex} />
-            #{String(card.uniqueId).padStart(2, '0')}/36
+            #{String(card.uniqueId).padStart(2, '0')}/{totalCards}
           </span>
         </div>
       </div>
@@ -403,7 +506,7 @@ const SingleCard = ({ card, onSelectCard }) => {
 };
 
 // --- TABLETOP SIMULATOR (TTS) CARD COMPONENT (Edge-to-edge 0 gap, full size, sharp square corners) ---
-const TTSCard = ({ card }) => {
+const TTSCard = ({ card, totalCards = 36 }) => {
   const scheme = COLOR_SCHEMES[card.color] || COLOR_SCHEMES.Clay;
   const isImmediate = card.type === 'Immediate';
 
@@ -475,7 +578,7 @@ const TTSCard = ({ card }) => {
           <span>COLONY COLLAPSE</span>
           <span className="flex items-center gap-1" style={{ color: scheme.inkHex }}>
             <IssueSymbol color={card.color} size={11} strokeWidth={2.6} colorHex={scheme.inkHex} />
-            #{String(card.uniqueId).padStart(2, '0')}/36
+            #{String(card.uniqueId).padStart(2, '0')}/{totalCards}
           </span>
         </div>
       </div>
@@ -485,15 +588,18 @@ const TTSCard = ({ card }) => {
 
 // --- MAIN APP COMPONENT FOR COLONY COLLAPSE ---
 export default function ColonyCollapseAssets() {
-  const [deck, setDeck] = useState(generateDeck);
+  const [cardTemplates, setCardTemplates] = useState(CARD_TEMPLATES);
+  const deck = useMemo(() => generateDeck(cardTemplates), [cardTemplates]);
   const [selectedColor, setSelectedColor] = useState('ALL');
   const [selectedType, setSelectedType] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid', 'print', 'tts', 'backs'
   const [selectedCardModal, setSelectedCardModal] = useState(null);
   const [showCutLines, setShowCutLines] = useState(true);
+  const [csvImportError, setCsvImportError] = useState(null);
 
   const printRef = useRef(null);
+  const csvFileInputRef = useRef(null);
 
   // Filter Deck based on user controls
   const filteredDeck = deck.filter((card) => {
@@ -548,6 +654,39 @@ export default function ColonyCollapseAssets() {
       .catch((err) => console.error('Export error:', err));
   };
 
+  // Export card ability templates as CSV (one row per ability, not per printed card)
+  const exportCardsCSV = () => {
+    const csv = templatesToCSV(cardTemplates);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = 'ColonyCollapse_Cards.csv';
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Import card ability templates from a CSV file, replacing the current deck
+  const importCardsCSV = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const rows = parseCSV(String(reader.result));
+        const templates = csvRowsToTemplates(rows);
+        setCardTemplates(templates);
+        setCsvImportError(null);
+      } catch (err) {
+        setCsvImportError(err.message);
+      }
+    };
+    reader.onerror = () => setCsvImportError('Could not read the selected file.');
+    reader.readAsText(file);
+  };
+
   // Export TTS Deck Image (10 Columns Grid)
   const exportTTSSheet = () => {
     const node = document.getElementById('tts-sheet-export');
@@ -580,12 +719,35 @@ export default function ColonyCollapseAssets() {
               </span>
             </h1>
             <p className="text-slate-400 text-sm mt-1 max-w-2xl">
-              36 Cards (18 abilities × 2 color copies). Perfectly balanced equal color distribution (6 cards of each color: Red, Green, Blue, Purple, Yellow, Orange).
+              {deck.length} Cards ({cardTemplates.length} abilities × 2 color copies).
             </p>
           </div>
 
           {/* Quick Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap no-print">
+            <button
+              onClick={exportCardsCSV}
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2 rounded-lg transition shadow-md active:scale-95 cursor-pointer text-xs sm:text-sm border border-slate-700"
+              title="Download the card abilities as a CSV file"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
+            <button
+              onClick={() => csvFileInputRef.current?.click()}
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2 rounded-lg transition shadow-md active:scale-95 cursor-pointer text-xs sm:text-sm border border-slate-700"
+              title="Replace the card abilities with a CSV file"
+            >
+              <Upload className="w-4 h-4" />
+              Import CSV
+            </button>
+            <input
+              ref={csvFileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={importCardsCSV}
+              className="hidden"
+            />
             <button
               onClick={() => window.print()}
               className="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4 py-2 rounded-lg transition shadow-md active:scale-95 cursor-pointer text-xs sm:text-sm"
@@ -595,6 +757,21 @@ export default function ColonyCollapseAssets() {
             </button>
           </div>
         </div>
+
+        {csvImportError && (
+          <div className="max-w-7xl mx-auto mt-4 flex items-start gap-2 bg-red-950/60 border border-red-800/60 text-red-200 text-xs rounded-lg px-3 py-2.5 no-print">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <span className="font-bold">CSV import failed:</span> {csvImportError}
+            </div>
+            <button
+              onClick={() => setCsvImportError(null)}
+              className="text-red-300 hover:text-white font-bold cursor-pointer flex-shrink-0"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area */}
@@ -722,7 +899,7 @@ export default function ColonyCollapseAssets() {
           {/* Color Distribution Bar */}
           <div className="mt-4 pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-300">Equal Color Distribution (6 each):</span>
+              <span className="font-semibold text-slate-300">Color Distribution:</span>
               {Object.entries(colorCounts).map(([color, count]) => (
                 <span key={color} className="inline-flex items-center gap-1 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLOR_SCHEMES[color].hexCode }}></span>
@@ -731,7 +908,7 @@ export default function ColonyCollapseAssets() {
               ))}
             </div>
             <div className="text-slate-400">
-              ⚡ Immediate: <strong className="text-amber-400">{typeCounts.Immediate}</strong> | 🔄 Ongoing: <strong className="text-indigo-400">{typeCounts.Ongoing}</strong> | Total: <strong className="text-white">36 cards</strong>
+              ⚡ Immediate: <strong className="text-amber-400">{typeCounts.Immediate}</strong> | 🔄 Ongoing: <strong className="text-indigo-400">{typeCounts.Ongoing}</strong> | Total: <strong className="text-white">{deck.length} cards</strong>
             </div>
           </div>
         </section>
@@ -741,7 +918,7 @@ export default function ColonyCollapseAssets() {
           <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {filteredDeck.map((card) => (
               <div key={card.uniqueId} id={`card-export-${card.uniqueId}`} className="flex flex-col">
-                <SingleCard card={card} onSelectCard={setSelectedCardModal} />
+                <SingleCard card={card} onSelectCard={setSelectedCardModal} totalCards={deck.length} />
                 <div className="mt-2 flex items-center justify-between text-xs text-slate-400 px-1 no-print">
                   <span className="truncate">{card.title} ({card.copyLabel})</span>
                   <button
@@ -806,7 +983,7 @@ export default function ColonyCollapseAssets() {
                     <div className="grid grid-cols-3 gap-3 print:gap-2">
                       {pageCards.map((card) => (
                         <div key={card.uniqueId} className={`relative ${showCutLines ? 'p-1 border border-dashed border-slate-300 print:border-slate-400' : ''}`}>
-                          <SingleCard card={card} />
+                          <SingleCard card={card} totalCards={deck.length} />
                         </div>
                       ))}
                     </div>
@@ -827,7 +1004,7 @@ export default function ColonyCollapseAssets() {
                   Tabletop Simulator (TTS) 10-Column Deck Sheet (2800px Wide)
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Full-resolution, zero-gap edge-to-edge layout for Tabletop Simulator custom deck import (36 cards).
+                  Full-resolution, zero-gap edge-to-edge layout for Tabletop Simulator custom deck import ({deck.length} cards).
                 </p>
               </div>
               <button
@@ -847,7 +1024,7 @@ export default function ColonyCollapseAssets() {
               >
                 {/* 36 Deck Cards */}
                 {deck.map((card) => (
-                  <TTSCard key={card.uniqueId} card={card} />
+                  <TTSCard key={card.uniqueId} card={card} totalCards={deck.length} />
                 ))}
               </div>
             </div>
@@ -915,7 +1092,7 @@ export default function ColonyCollapseAssets() {
 
             <div className="flex flex-col sm:flex-row gap-6 items-center">
               <div className="w-56 flex-shrink-0">
-                <SingleCard card={selectedCardModal} />
+                <SingleCard card={selectedCardModal} totalCards={deck.length} />
               </div>
 
               <div className="flex-1 space-y-3">
