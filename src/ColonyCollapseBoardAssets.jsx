@@ -5,6 +5,7 @@ import {
   Edit3, Copy, TrendingUp, Redo, Circle, Triangle, Compass, Eye
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
+import { exportForTTS, buildAssetFilename } from 'asset-kit';
 import JSZip from 'jszip';
 import ColonyCollapseAssets from './ColonyCollapseAssets.jsx';
 import ColonyCollapseTracksAssets, {
@@ -307,7 +308,7 @@ const BOARD_CENTER = { x: BOARD_WIDTH / 2, y: BOARD_HEIGHT / 2 };
 const HubBeeEmblem = ({ cx, cy, scale = 1.5 }) => (
   <g transform={`translate(${cx}, ${cy}) scale(${scale})`}>
     <polygon points="0,-50 43,-25 43,25 0,50 -43,25 -43,-25" fill="#1E293B" stroke="#F5B301" strokeWidth="2" />
-    <circle cx="0" cy="0" r="32" fill="#0F172A" stroke="#D97706" strokeWidth="1.5" />
+    <circle cx="0" cy="0" r="32" fill="#0F172A" stroke="#F5B301" strokeWidth="1.5" />
     <g transform="translate(-24, -25)">
       <BeeMark size={48} bodyColor="#F5B301" stripeColor="#0F172A" />
     </g>
@@ -442,7 +443,7 @@ const BoardSVG = ({
             x2={segment.to.x}
             y2={segment.to.y}
             stroke="#080D18"
-            strokeWidth="11"
+            strokeWidth="17"
           />
         ))}
         {borderSegments.map((segment, idx) => (
@@ -453,7 +454,7 @@ const BoardSVG = ({
             x2={segment.to.x}
             y2={segment.to.y}
             stroke="#E8DCC5"
-            strokeWidth="3.5"
+            strokeWidth="6"
           />
         ))}
       </g>
@@ -465,7 +466,8 @@ const BoardSVG = ({
 // The 6-hex tile display: six empty hex slots in a ring, six color badges
 // pointing to the matching districts, and a single central circular dial
 // with a rotating dial token that points to the active slot.
-const DISPLAY_HEX_R = 110;
+// Same radius as a board cell, since an actual hex tile has to sit in both.
+const DISPLAY_HEX_R = BOARD_CELL_R;
 const DISPLAY_RING_R = 300;
 const DISPLAY_BADGE_RING_R = 130;
 const DISPLAY_BADGE_R = 40;
@@ -1443,10 +1445,14 @@ const ActionUpgradeMarker = ({ action }) => {
 };
 
 // Uniform back for the 7 upgrade markers - identical on every one, no name or
-// icon, so a stack of them can be shuffled and drawn blind.
+// icon, so a stack of them can be shuffled and drawn blind. Plain gradient, a
+// white bee centred between two upgrade triangles bookending it.
 const ActionUpgradeMarkerBack = () => {
   const w = ISSUE_TRACK_CELL_W;
   const h = ISSUE_TRACK_CELL_H;
+  const beeSize = 48;
+  const triangleSize = 24;
+
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="block">
       <defs>
@@ -1454,23 +1460,8 @@ const ActionUpgradeMarkerBack = () => {
           <stop offset="0%" stopColor="#C48D15" />
           <stop offset="100%" stopColor="#5C3D00" />
         </linearGradient>
-        <pattern id="action-upgrade-back-hex" width="18" height="31.18" patternUnits="userSpaceOnUse">
-          <path
-            d="M9 0 L18 5.2 L18 15.6 L9 20.8 L0 15.6 L0 5.2 Z M9 31.18 L18 25.98 L18 15.6 L9 20.8 L0 15.6 L0 25.98 Z"
-            fill="none"
-            stroke="#3F2D07"
-            strokeWidth="0.6"
-            strokeOpacity="0.55"
-          />
-        </pattern>
-        <clipPath id="action-upgrade-back-clip">
-          <rect x="1.5" y="1.5" width={w - 3} height={h - 3} rx="12" />
-        </clipPath>
       </defs>
       <rect x="1.5" y="1.5" width={w - 3} height={h - 3} rx="12" fill="url(#action-upgrade-back-grad)" />
-      <g clipPath="url(#action-upgrade-back-clip)">
-        <rect x="1.5" y="1.5" width={w - 3} height={h - 3} fill="url(#action-upgrade-back-hex)" />
-      </g>
       <rect
         x="1.5"
         y="1.5"
@@ -1481,8 +1472,14 @@ const ActionUpgradeMarkerBack = () => {
         stroke={ACTION_SIDE_THEME.upgraded.border}
         strokeWidth="3"
       />
-      <g transform={`translate(${w / 2 - 18}, ${h / 2 - 18})`}>
-        <BeeMark size={36} bodyColor="#3F2D07" stripeColor="#F5D98A" />
+      <g transform={`translate(${32 - triangleSize / 2}, ${h / 2 - triangleSize / 2})`}>
+        <Triangle size={triangleSize} fill="#FFFFFF" color="#FFFFFF" strokeWidth={0} />
+      </g>
+      <g transform={`translate(${w - 32 - triangleSize / 2}, ${h / 2 - triangleSize / 2})`}>
+        <Triangle size={triangleSize} fill="#FFFFFF" color="#FFFFFF" strokeWidth={0} />
+      </g>
+      <g transform={`translate(${w / 2 - beeSize / 2}, ${h / 2 - beeSize / 2})`}>
+        <BeeMark size={beeSize} bodyColor="#FFFFFF" stripeColor={ACTION_SIDE_THEME.upgraded.border} />
       </g>
     </svg>
   );
@@ -1606,8 +1603,10 @@ export default function ColonyCollapseBoardAssets() {
 
   const exportSingleTile = (tile, side) =>
     runExport(`tile-${tile.id}-${side}`, async () => {
-      const dataUrl = await renderNodeToPng(`cc-tile-export-${tile.id}-${side}`);
-      triggerDownload(dataUrl, tileFileName(tile, side));
+      const nodeId = `cc-tile-export-${tile.id}-${side}`;
+      const node = document.getElementById(nodeId);
+      if (!node) throw new Error(`Export node "${nodeId}" is not mounted`);
+      await exportForTTS(node, { filename: tileFileName(tile, side), transparent: true });
     });
 
   const exportSingleAction = (action, side) =>
@@ -1652,13 +1651,18 @@ export default function ColonyCollapseBoardAssets() {
 
   const exportDialToken = () =>
     runExport('dial-token', async () => {
-      const dataUrl = await renderNodeToPng('cc-dial-token-export', { transparent: true });
-      triggerDownload(dataUrl, 'ColonyCollapse_Token_Dial.png');
+      const nodeId = 'cc-dial-token-export';
+      const node = document.getElementById(nodeId);
+      if (!node) throw new Error(`Export node "${nodeId}" is not mounted`);
+      await exportForTTS(node, {
+        filename: buildAssetFilename({ game: 'ColonyCollapse', group: 'Token', variant: 'Dial' }),
+        transparent: true
+      });
     });
 
-  const exportSheet = (nodeId, fileName) =>
+  const exportSheet = (nodeId, fileName, transparent = false) =>
     runExport(nodeId, async () => {
-      const dataUrl = await renderNodeToPng(nodeId, { transparent: false });
+      const dataUrl = await renderNodeToPng(nodeId, { transparent });
       triggerDownload(dataUrl, fileName);
     });
 
@@ -1826,14 +1830,14 @@ export default function ColonyCollapseBoardAssets() {
                 <Package className="w-4 h-4" /> All 30 faces (.zip)
               </button>
               <button
-                onClick={() => exportSheet('cc-tile-sheet-a', 'ColonyCollapse_TTS_TileSheet_SideA.png')}
+                onClick={() => exportSheet('cc-tile-sheet-a', 'ColonyCollapse_TTS_TileSheet_SideA.png', true)}
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"
               >
                 <FileImage className="w-4 h-4" /> Sheet — side A
               </button>
               <button
-                onClick={() => exportSheet('cc-tile-sheet-b', 'ColonyCollapse_TTS_TileSheet_SideB.png')}
+                onClick={() => exportSheet('cc-tile-sheet-b', 'ColonyCollapse_TTS_TileSheet_SideB.png', true)}
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"
               >
@@ -2144,7 +2148,7 @@ export default function ColonyCollapseBoardAssets() {
               </button>
               <button
                 onClick={() =>
-                  exportSheet('cc-action-sheet', 'ColonyCollapse_ActionTiles_Sheet.png')
+                  exportSheet('cc-action-sheet', 'ColonyCollapse_ActionTiles_Sheet.png', true)
                 }
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"
@@ -2324,8 +2328,7 @@ export default function ColonyCollapseBoardAssets() {
             id={`cc-tile-sheet-${side.toLowerCase()}`}
             style={{
               display: 'grid',
-              gridTemplateColumns: `repeat(5, ${TILE_EXPORT_PX}px)`,
-              background: '#0B1220'
+              gridTemplateColumns: `repeat(5, ${TILE_EXPORT_PX}px)`
             }}
           >
             {CC_TILE_PAIRS.map((tile) => (
@@ -2343,10 +2346,7 @@ export default function ColonyCollapseBoardAssets() {
           id="cc-action-sheet"
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(2, ${ACTION_EXPORT_PX}px)`,
-            gap: 24,
-            padding: 24,
-            background: '#0B1220'
+            gridTemplateColumns: `repeat(4, ${ACTION_EXPORT_PX}px)`
           }}
         >
           {CC_ACTIONS.flatMap((action) =>

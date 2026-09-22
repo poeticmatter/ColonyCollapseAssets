@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Download, Package, LayoutGrid, Circle, Flag, Hourglass, Star, ArrowRight, Triangle } from 'lucide-react';
+import { Download, Package, LayoutGrid, Circle, Flag, Hourglass, Star, ArrowRight, Triangle, Gavel } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import JSZip from 'jszip';
+import { exportForTTS } from 'asset-kit';
 import {
   CC_COLOR_HEX,
   CC_COLOR_DEEP_HEX,
@@ -129,6 +130,22 @@ const RoundMarkerSVG = ({ className = '' }) => {
     <DiscTokenSVG fillHex={GOLD_FILL} deepHex={GOLD_DEEP} className={className}>
       <g transform={`translate(${glyphPos}, ${glyphPos})`}>
         <Hourglass size={glyphSize} strokeWidth={2.3} color={GOLD_INK} />
+      </g>
+    </DiscTokenSVG>
+  );
+};
+
+// The start player token - gold, like the round marker, since it also
+// belongs to whoever holds it rather than to one player's own color. A
+// gavel for "who has the floor," matching the cards that pass it around
+// ("Speaker's Favor", "Deferred Gavel").
+const StartPlayerMarkerSVG = ({ className = '' }) => {
+  const glyphSize = 120;
+  const glyphPos = (TOKEN_SIZE - glyphSize) / 2;
+  return (
+    <DiscTokenSVG fillHex={GOLD_FILL} deepHex={GOLD_DEEP} className={className}>
+      <g transform={`translate(${glyphPos}, ${glyphPos})`}>
+        <Gavel size={glyphSize} strokeWidth={2.3} color={GOLD_INK} />
       </g>
     </DiscTokenSVG>
   );
@@ -512,9 +529,13 @@ const PLAYER_BOARD_SLOTS = 4;
 const PLAYER_BOARD_GAP = 74;
 const PLAYER_BOARD_MARGIN = 40;
 const PLAYER_BOARD_HEADER_H = 96;
+// Same gap above the slots (below the header) as below them (above the board's
+// bottom edge), so the slot row sits evenly between the two.
+const PLAYER_BOARD_SLOT_GAP = PLAYER_BOARD_MARGIN;
 const PLAYER_BOARD_WIDTH =
   PLAYER_BOARD_MARGIN * 2 + PLAYER_BOARD_SLOTS * PLAYER_BOARD_SLOT + (PLAYER_BOARD_SLOTS - 1) * PLAYER_BOARD_GAP;
-const PLAYER_BOARD_HEIGHT = PLAYER_BOARD_MARGIN * 2 + PLAYER_BOARD_HEADER_H + PLAYER_BOARD_SLOT;
+const PLAYER_BOARD_HEIGHT =
+  PLAYER_BOARD_MARGIN * 2 + PLAYER_BOARD_HEADER_H + PLAYER_BOARD_SLOT_GAP + PLAYER_BOARD_SLOT;
 
 const PlayerBoardSVG = ({ playerColor, className = '' }) => {
   const fillHex = CC_PLAYER_COLOR_HEX[playerColor];
@@ -522,8 +543,8 @@ const PlayerBoardSVG = ({ playerColor, className = '' }) => {
   const inkHex = CC_PLAYER_COLOR_INK[playerColor];
   const boardX = PLAYER_BOARD_MARGIN;
   const boardY = PLAYER_BOARD_MARGIN;
-  const slotsTopY = boardY + PLAYER_BOARD_HEADER_H;
-  const beeSize = 56;
+  const headerBottomY = boardY + PLAYER_BOARD_HEADER_H;
+  const slotsTopY = headerBottomY + PLAYER_BOARD_SLOT_GAP;
 
   return (
     <svg
@@ -544,24 +565,36 @@ const PlayerBoardSVG = ({ playerColor, className = '' }) => {
         strokeWidth="6"
       />
 
-      {/* Header band: player color, bee mark, no name text - the color says who this is */}
+      {/* Header band: player color, no icon or name text - the color says who this
+          is, and each slot's number sits here instead of inside the slot, since an
+          action tile placed in the slot would otherwise cover it. */}
       <path
-        d={`M ${boardX} ${slotsTopY} V ${boardY + 22} Q ${boardX} ${boardY} ${boardX + 22} ${boardY} H ${
+        d={`M ${boardX} ${headerBottomY} V ${boardY + 22} Q ${boardX} ${boardY} ${boardX + 22} ${boardY} H ${
           boardX + PLAYER_BOARD_WIDTH - PLAYER_BOARD_MARGIN * 2 - 22
         } Q ${boardX + PLAYER_BOARD_WIDTH - PLAYER_BOARD_MARGIN * 2} ${boardY} ${
           boardX + PLAYER_BOARD_WIDTH - PLAYER_BOARD_MARGIN * 2
-        } ${boardY + 22} V ${slotsTopY} Z`}
+        } ${boardY + 22} V ${headerBottomY} Z`}
         fill={fillHex}
       />
-      <g transform={`translate(${boardX + 24}, ${boardY + PLAYER_BOARD_HEADER_H / 2 - beeSize / 2})`}>
-        <BeeMark size={beeSize} bodyColor={inkHex} stripeColor={fillHex} />
-      </g>
 
       {Array.from({ length: PLAYER_BOARD_SLOTS }).map((_, idx) => {
         const slotX = boardX + idx * (PLAYER_BOARD_SLOT + PLAYER_BOARD_GAP);
+        const slotCenterX = slotX + PLAYER_BOARD_SLOT / 2;
         const slotCenterY = slotsTopY + PLAYER_BOARD_SLOT / 2;
         return (
           <g key={`slot-${idx}`}>
+            <text
+              x={slotCenterX}
+              y={boardY + PLAYER_BOARD_HEADER_H / 2 + 12}
+              textAnchor="middle"
+              fontFamily="ui-sans-serif, system-ui, sans-serif"
+              fontSize="34"
+              fontWeight="800"
+              fill={inkHex}
+            >
+              {idx + 1}
+            </text>
+
             <rect
               x={slotX}
               y={slotsTopY}
@@ -573,18 +606,6 @@ const PlayerBoardSVG = ({ playerColor, className = '' }) => {
               strokeWidth="4"
               strokeDasharray="12 10"
             />
-            <circle cx={slotX + 40} cy={slotsTopY + 40} r="26" fill={fillHex} stroke={deepHex} strokeWidth="3" />
-            <text
-              x={slotX + 40}
-              y={slotsTopY + 50}
-              textAnchor="middle"
-              fontFamily="ui-sans-serif, system-ui, sans-serif"
-              fontSize="30"
-              fontWeight="800"
-              fill={inkHex}
-            >
-              {idx + 1}
-            </text>
 
             {idx < PLAYER_BOARD_SLOTS - 1 && (
               <g transform={`translate(${slotX + PLAYER_BOARD_SLOT + PLAYER_BOARD_GAP / 2 - 22}, ${slotCenterY - 22})`}>
@@ -601,6 +622,14 @@ const PlayerBoardSVG = ({ playerColor, className = '' }) => {
 // --- 8. EXPORT HELPERS ----------------------------------------------------
 const EXPORT_PIXEL_RATIO = 2;
 
+// Screentop.gg rejects images wider than this. The combined tracks board is
+// the one export wide enough to hit it, so it gets its own capped ratio
+// instead of the standard one - everything else stays comfortably under.
+// A few px of headroom absorb any rounding html-to-image does when it turns
+// this ratio back into an actual canvas width.
+const SCREENTOP_MAX_DIMENSION = 4096;
+const TRACKS_BOARD_EXPORT_PIXEL_RATIO = Math.min(EXPORT_PIXEL_RATIO, (SCREENTOP_MAX_DIMENSION - 8) / TRACKS_BOARD_WIDTH);
+
 const triggerDownload = (dataUrl, fileName) => {
   const link = document.createElement('a');
   link.download = fileName;
@@ -608,12 +637,12 @@ const triggerDownload = (dataUrl, fileName) => {
   link.click();
 };
 
-const renderNodeToPng = async (nodeId, { transparent = false } = {}) => {
+const renderNodeToPng = async (nodeId, { transparent = false, pixelRatio = EXPORT_PIXEL_RATIO } = {}) => {
   const node = document.getElementById(nodeId);
   if (!node) throw new Error(`Export node "${nodeId}" is not mounted`);
   return toPng(node, {
     cacheBust: true,
-    pixelRatio: EXPORT_PIXEL_RATIO,
+    pixelRatio,
     backgroundColor: transparent ? null : '#0B1220'
   });
 };
@@ -637,9 +666,20 @@ export default function ColonyCollapseTracksAssets() {
     }
   };
 
-  const exportNode = (nodeId, fileName, transparent = false) =>
+  // Transparent exports have no custom background to reproduce, so they route
+  // through asset-kit's shared TTS export path. Opaque exports fill in this
+  // game's own #0B1220 board color (see renderNodeToPng) - asset-kit's export
+  // helpers only offer transparent-or-#000000, so those stay on the local
+  // html-to-image path to keep the exact background byte-for-byte.
+  const exportNode = (nodeId, fileName, transparent = false, pixelRatio = EXPORT_PIXEL_RATIO) =>
     runExport(nodeId, async () => {
-      const dataUrl = await renderNodeToPng(nodeId, { transparent });
+      if (transparent) {
+        const node = document.getElementById(nodeId);
+        if (!node) throw new Error(`Export node "${nodeId}" is not mounted`);
+        await exportForTTS(node, { filename: fileName, transparent: true, pixelRatio });
+        return;
+      }
+      const dataUrl = await renderNodeToPng(nodeId, { transparent, pixelRatio });
       triggerDownload(dataUrl, fileName);
     });
 
@@ -665,31 +705,43 @@ export default function ColonyCollapseTracksAssets() {
       key: `disc-${color}`,
       nodeId: `cc-token-disc-${color}`,
       fileName: `ColonyCollapse_Token_Disc_${color}.png`,
-      label: `${color} disc`
+      label: `${color} disc`,
+      transparent: true
     })),
     ...CC_PLAYER_COLOR_ORDER.map((color) => ({
       key: `control-${color}`,
       nodeId: `cc-token-control-${color}`,
       fileName: `ColonyCollapse_Token_Control_${color}.png`,
-      label: `${color} control`
+      label: `${color} control`,
+      transparent: true
     })),
     {
       key: 'round-marker',
       nodeId: 'cc-token-round-marker',
       fileName: 'ColonyCollapse_Token_RoundMarker.png',
-      label: 'Round marker'
+      label: 'Round marker',
+      transparent: true
+    },
+    {
+      key: 'start-player',
+      nodeId: 'cc-token-start-player',
+      fileName: 'ColonyCollapse_Token_StartPlayer.png',
+      label: 'Start player token',
+      transparent: true
     },
     {
       key: 'shared-pawn',
       nodeId: 'cc-token-shared-pawn',
       fileName: 'ColonyCollapse_Token_SharedPawn.png',
-      label: 'Shared pawn'
+      label: 'Shared pawn',
+      transparent: true
     },
     {
       key: 'dial-token',
       nodeId: 'cc-token-dial',
       fileName: 'ColonyCollapse_Token_Dial.png',
-      label: 'Dial token'
+      label: 'Dial token',
+      transparent: true
     }
   ];
 
@@ -767,7 +819,7 @@ export default function ColonyCollapseTracksAssets() {
                     <PlayerDiscSVG playerColor={color} icon="bee" />
                   </div>
                   <button
-                    onClick={() => exportNode(`cc-token-disc-${color}`, `ColonyCollapse_Token_Disc_${color}.png`)}
+                    onClick={() => exportNode(`cc-token-disc-${color}`, `ColonyCollapse_Token_Disc_${color}.png`, true)}
                     disabled={isBusy}
                     className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                   >
@@ -785,7 +837,7 @@ export default function ColonyCollapseTracksAssets() {
                     <PlayerDiscSVG playerColor={color} icon="flag" />
                   </div>
                   <button
-                    onClick={() => exportNode(`cc-token-control-${color}`, `ColonyCollapse_Token_Control_${color}.png`)}
+                    onClick={() => exportNode(`cc-token-control-${color}`, `ColonyCollapse_Token_Control_${color}.png`, true)}
                     disabled={isBusy}
                     className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                   >
@@ -802,7 +854,7 @@ export default function ColonyCollapseTracksAssets() {
                   <RoundMarkerSVG />
                 </div>
                 <button
-                  onClick={() => exportNode('cc-token-round-marker', 'ColonyCollapse_Token_RoundMarker.png')}
+                  onClick={() => exportNode('cc-token-round-marker', 'ColonyCollapse_Token_RoundMarker.png', true)}
                   disabled={isBusy}
                   className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                 >
@@ -811,10 +863,22 @@ export default function ColonyCollapseTracksAssets() {
               </div>
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col items-center gap-2">
                 <div className="w-full aspect-square">
+                  <StartPlayerMarkerSVG />
+                </div>
+                <button
+                  onClick={() => exportNode('cc-token-start-player', 'ColonyCollapse_Token_StartPlayer.png', true)}
+                  disabled={isBusy}
+                  className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
+                >
+                  <Download className="w-3 h-3 inline mr-1" /> Start player token
+                </button>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col items-center gap-2">
+                <div className="w-full aspect-square">
                   <SharedPawnSVG />
                 </div>
                 <button
-                  onClick={() => exportNode('cc-token-shared-pawn', 'ColonyCollapse_Token_SharedPawn.png')}
+                  onClick={() => exportNode('cc-token-shared-pawn', 'ColonyCollapse_Token_SharedPawn.png', true)}
                   disabled={isBusy}
                   className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                 >
@@ -826,7 +890,7 @@ export default function ColonyCollapseTracksAssets() {
                   <DialTokenSVG size={TOKEN_SIZE} />
                 </div>
                 <button
-                  onClick={() => exportNode('cc-token-dial', 'ColonyCollapse_Token_Dial.png')}
+                  onClick={() => exportNode('cc-token-dial', 'ColonyCollapse_Token_Dial.png', true)}
                   disabled={isBusy}
                   className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                 >
@@ -842,11 +906,13 @@ export default function ColonyCollapseTracksAssets() {
           <section>
             <div className="flex flex-wrap items-center gap-3 mb-6 no-print">
               <button
-                onClick={() => exportNode('cc-tracks-board', 'ColonyCollapse_TracksBoard.png')}
+                onClick={() =>
+                  exportNode('cc-tracks-board', 'ColonyCollapse_TracksBoard.png', false, TRACKS_BOARD_EXPORT_PIXEL_RATIO)
+                }
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm flex items-center gap-2 cursor-pointer transition-colors"
               >
-                <Download className="w-4 h-4" /> Tracks board PNG ({TRACKS_BOARD_WIDTH * EXPORT_PIXEL_RATIO}px)
+                <Download className="w-4 h-4" /> Tracks board PNG ({Math.round(TRACKS_BOARD_WIDTH * TRACKS_BOARD_EXPORT_PIXEL_RATIO)}px)
               </button>
               <p className="text-xs text-slate-500 max-w-md">
                 Round track on top, the point track beneath it, then the six issue tracks in a
@@ -912,6 +978,9 @@ export default function ColonyCollapseTracksAssets() {
         ))}
         <div id="cc-token-round-marker" style={{ width: TOKEN_SIZE, height: TOKEN_SIZE }}>
           <RoundMarkerSVG />
+        </div>
+        <div id="cc-token-start-player" style={{ width: TOKEN_SIZE, height: TOKEN_SIZE }}>
+          <StartPlayerMarkerSVG />
         </div>
         <div id="cc-token-shared-pawn" style={{ width: TOKEN_SIZE, height: TOKEN_SIZE }}>
           <SharedPawnSVG />

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { Download, Printer, LayoutGrid, Eye, Search, Sparkles, Filter, RefreshCw, Zap, RotateCw, CheckCircle2, Copy, Hexagon, Shield, Layers, HelpCircle, FileImage, Upload, AlertTriangle } from 'lucide-react';
 import { toPng } from 'html-to-image';
+import { exportForTTS, buildAssetFilename } from 'asset-kit';
 import {
   CC_COLOR_HEX,
   CC_COLOR_DEEP_HEX,
@@ -318,24 +319,6 @@ const csvRowsToTemplates = (rows) => {
 
 // --- CUSTOM SVG VECTOR ARTWORK COMPONENTS ---
 
-// Honeycomb Background Pattern SVG
-const HoneycombBgSVG = ({ colorHex = '#EF4444' }) => (
-  <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full opacity-20 pointer-events-none">
-    <defs>
-      <pattern id={`hex-pattern-${colorHex.replace('#', '')}`} width="20" height="34.64" patternUnits="userSpaceOnUse" patternTransform="scale(0.8)">
-        <path
-          d="M10 0 L20 5.77 L20 17.32 L10 23.09 L0 17.32 L0 5.77 Z M10 34.64 L20 28.87 L20 17.32 L10 23.09 L0 17.32 L0 28.87 Z"
-          fill="none"
-          stroke={colorHex}
-          strokeWidth="0.8"
-          strokeOpacity="0.6"
-        />
-      </pattern>
-    </defs>
-    <rect width="100%" height="100%" fill={`url(#hex-pattern-${colorHex.replace('#', '')})`} />
-  </svg>
-);
-
 // Bee Democracy Emblem SVG
 const BeeDemocracyEmblemSVG = ({ colorHex = '#EAB308', size = 80 }) => (
   <svg viewBox="0 0 120 120" width={size} height={size} className="drop-shadow-sm">
@@ -384,29 +367,15 @@ const CardBackGraphicSVG = () => (
         <stop offset="50%" stopColor="#1E293B" />
         <stop offset="100%" stopColor="#020617" />
       </linearGradient>
-      <pattern id="card-back-hex" width="24" height="41.56" patternUnits="userSpaceOnUse">
-        <path
-          d="M12 0 L24 6.93 L24 20.78 L12 27.71 L0 20.78 L0 6.93 Z"
-          fill="none"
-          stroke="#F59E0B"
-          strokeWidth="0.75"
-          strokeOpacity="0.25"
-        />
-      </pattern>
     </defs>
 
     {/* Outer background */}
     <rect width="200" height="300" rx="12" fill="url(#card-back-bg)" />
-    <rect width="200" height="300" fill="url(#card-back-hex)" />
-
-    {/* Gold Ornate Hex Frame */}
-    <rect x="12" y="12" width="176" height="276" rx="8" fill="none" stroke="#D97706" strokeWidth="2" />
-    <rect x="16" y="16" width="168" height="268" rx="6" fill="none" stroke="#F59E0B" strokeWidth="0.8" strokeDasharray="6 3" />
 
     {/* Central Emblem */}
     <g transform="translate(100, 150)">
       <polygon points="0,-50 43,-25 43,25 0,50 -43,25 -43,-25" fill="#1E293B" stroke="#F59E0B" strokeWidth="2" />
-      <circle cx="0" cy="0" r="32" fill="#0F172A" stroke="#D97706" strokeWidth="1.5" />
+      <circle cx="0" cy="0" r="32" fill="#0F172A" stroke="#F59E0B" strokeWidth="1.5" />
 
       {/* Bee Icon - the same mark used on the board hub and every player disc */}
       <g transform="translate(-24, -25)">
@@ -439,8 +408,6 @@ const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
         className="relative h-[28%] w-full px-3 py-2.5 flex items-center justify-center overflow-hidden text-center"
         style={{ background: scheme.bannerGradient, color: scheme.inkHex }}
       >
-        <HoneycombBgSVG colorHex={scheme.inkHex} />
-
         {/* Issue glyph: the color-blind readable half of the card's identity */}
         <span
           className="absolute top-1.5 left-1.5 z-10 flex items-center justify-center rounded-full w-5 h-5"
@@ -520,8 +487,6 @@ const TTSCard = ({ card, totalCards = 36 }) => {
         className="relative h-[28%] w-full px-3.5 py-3 flex items-center justify-center overflow-hidden text-center"
         style={{ background: scheme.bannerGradient, color: scheme.inkHex }}
       >
-        <HoneycombBgSVG colorHex={scheme.inkHex} />
-
         {/* Issue glyph: the color-blind readable half of the card's identity */}
         <span
           className="absolute top-2 left-2 z-10 flex items-center justify-center rounded-full w-6 h-6"
@@ -692,14 +657,9 @@ export default function ColonyCollapseAssets() {
     const node = document.getElementById('tts-sheet-export');
     if (!node) return;
 
-    toPng(node, { cacheBust: true, quality: 0.95 })
-      .then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = 'ColonyCollapse_TTS_DeckSheet_10cols.png';
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => console.error('Export error:', err));
+    exportForTTS(node, {
+      filename: buildAssetFilename({ game: 'ColonyCollapse', variant: 'TTS_DeckSheet_10cols' }),
+    }).catch((err) => console.error('Export error:', err));
   };
 
   return (

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Download, Printer, LayoutGrid, Filter, FileImage, ArrowRightLeft, Flower, Gem, Flame, Leaf, Sun, Droplet, Hexagon } from 'lucide-react';
-import { toPng } from 'html-to-image';
+import { exportForTTS, exportForScreentop, buildAssetFilename } from 'asset-kit';
 import ColonyCollapseHexTiles from './ColonyCollapseHexTiles.jsx';
 
 // --- 1. THE 6 OFFICIAL GAME COLORS ---
@@ -228,42 +228,27 @@ export default function ColonyCollapseLiteAssets() {
     const node = document.getElementById('tts-front-sheet-export');
     if (!node) return;
 
-    toPng(node, { cacheBust: true, quality: 0.95 })
-      .then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = 'ColonyCollapseLite_TTS_15Fronts.png';
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => console.error('Export error:', err));
+    exportForTTS(node, {
+      filename: buildAssetFilename({ game: 'ColonyCollapseLite', variant: 'TTS_15Fronts' }),
+    }).catch((err) => console.error('Export error:', err));
   };
 
   const exportTTSBackSheet = () => {
     const node = document.getElementById('tts-back-sheet-export');
     if (!node) return;
 
-    toPng(node, { cacheBust: true, quality: 0.95 })
-      .then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = 'ColonyCollapseLite_TTS_15Backs.png';
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => console.error('Export error:', err));
+    exportForTTS(node, {
+      filename: buildAssetFilename({ game: 'ColonyCollapseLite', variant: 'TTS_15Backs' }),
+    }).catch((err) => console.error('Export error:', err));
   };
 
   const exportScreentopSheet = () => {
     const node = document.getElementById('screentop-sheet-export');
     if (!node) return;
 
-    toPng(node, { cacheBust: true, quality: 0.95 })
-      .then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = 'ColonyCollapseLite_Screentop_30CardSheet.png';
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => console.error('Export error:', err));
+    exportForScreentop(node, {
+      filename: buildAssetFilename({ game: 'ColonyCollapseLite', variant: 'Screentop_30CardSheet' }),
+    }).catch((err) => console.error('Export error:', err));
   };
 
   return (

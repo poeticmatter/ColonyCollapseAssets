@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Download, Printer, LayoutGrid, Filter, FileImage, ArrowRightLeft, Flower, Gem, Flame, Leaf, Sun, Droplet, Archive, Sparkles } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import JSZip from 'jszip';
+import { exportForTTS, exportForScreentop, buildAssetFilename } from 'asset-kit';
 
 // --- COLOR SYMBOLS FOR GAME PALETTE ---
 export const ColorSymbol = ({ color, size = 24, strokeWidth = 2.2, colorHex = '#FFFFFF', className = '' }) => {
@@ -520,42 +521,30 @@ export default function ColonyCollapseHexTiles() {
     const node = document.getElementById('tts-hex-front-sheet-export');
     if (!node) return;
 
-    toPng(node, { cacheBust: true, backgroundColor: ttsTransparentBg ? null : '#000000', quality: 0.95 })
-      .then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = `ColonyCollapseLite_HexTiles_TTS_30Fronts_${ttsTransparentBg ? 'Transparent' : 'Black'}.png`;
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => console.error('Export error:', err));
+    exportForTTS(node, {
+      filename: buildAssetFilename({ game: 'ColonyCollapseLite', group: 'HexTiles', variant: 'TTS_30Fronts', modifier: ttsTransparentBg ? 'Transparent' : 'Black' }),
+      transparent: ttsTransparentBg,
+    }).catch((err) => console.error('Export error:', err));
   };
 
   const exportTTSBackSheet = () => {
     const node = document.getElementById('tts-hex-back-sheet-export');
     if (!node) return;
 
-    toPng(node, { cacheBust: true, backgroundColor: ttsTransparentBg ? null : '#000000', quality: 0.95 })
-      .then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = `ColonyCollapseLite_HexTiles_TTS_30Backs_${ttsTransparentBg ? 'Transparent' : 'Black'}.png`;
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => console.error('Export error:', err));
+    exportForTTS(node, {
+      filename: buildAssetFilename({ game: 'ColonyCollapseLite', group: 'HexTiles', variant: 'TTS_30Backs', modifier: ttsTransparentBg ? 'Transparent' : 'Black' }),
+      transparent: ttsTransparentBg,
+    }).catch((err) => console.error('Export error:', err));
   };
 
   const exportScreentopSheet = () => {
     const node = document.getElementById('screentop-hex-sheet-export');
     if (!node) return;
 
-    toPng(node, { cacheBust: true, backgroundColor: screentopTransparentBg ? null : '#000000', quality: 0.95 })
-      .then((dataUrl) => {
-        const link = document.createElement('a');
-        link.download = `ColonyCollapseLite_HexTiles_Screentop_60FaceSheet_${screentopTransparentBg ? 'Transparent' : 'Black'}.png`;
-        link.href = dataUrl;
-        link.click();
-      })
-      .catch((err) => console.error('Export error:', err));
+    exportForScreentop(node, {
+      filename: buildAssetFilename({ game: 'ColonyCollapseLite', group: 'HexTiles', variant: 'Screentop_60FaceSheet', modifier: screentopTransparentBg ? 'Transparent' : 'Black' }),
+      transparent: screentopTransparentBg,
+    }).catch((err) => console.error('Export error:', err));
   };
 
   return (
