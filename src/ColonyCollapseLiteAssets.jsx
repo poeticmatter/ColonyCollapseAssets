@@ -229,7 +229,7 @@ export default function ColonyCollapseLiteAssets() {
     if (!node) return;
 
     exportForTTS(node, {
-      filename: buildAssetFilename({ game: 'ColonyCollapseLite', variant: 'TTS_15Fronts' }),
+      filename: buildAssetFilename({ game: 'ColonyCollapseLite', group: 'Cards', variant: 'TTS_15Fronts' }),
     }).catch((err) => console.error('Export error:', err));
   };
 
@@ -238,7 +238,7 @@ export default function ColonyCollapseLiteAssets() {
     if (!node) return;
 
     exportForTTS(node, {
-      filename: buildAssetFilename({ game: 'ColonyCollapseLite', variant: 'TTS_15Backs' }),
+      filename: buildAssetFilename({ game: 'ColonyCollapseLite', group: 'Cards', variant: 'TTS_15Backs' }),
     }).catch((err) => console.error('Export error:', err));
   };
 
@@ -247,7 +247,7 @@ export default function ColonyCollapseLiteAssets() {
     if (!node) return;
 
     exportForScreentop(node, {
-      filename: buildAssetFilename({ game: 'ColonyCollapseLite', variant: 'Screentop_30CardSheet' }),
+      filename: buildAssetFilename({ game: 'ColonyCollapseLite', group: 'Cards', variant: 'Screentop_30CardSheet' }),
     }).catch((err) => console.error('Export error:', err));
   };
 

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { Download, Printer, LayoutGrid, Eye, Search, Sparkles, Filter, RefreshCw, Zap, RotateCw, CheckCircle2, Copy, Hexagon, Shield, Layers, HelpCircle, FileImage, Upload, AlertTriangle } from 'lucide-react';
 import { toPng } from 'html-to-image';
-import { exportForTTS, buildAssetFilename } from 'asset-kit';
+import { exportForTTS, exportForScreentop, buildAssetFilename } from 'asset-kit';
 import {
   CC_COLOR_HEX,
   CC_COLOR_DEEP_HEX,
@@ -551,6 +551,19 @@ const TTSCard = ({ card, totalCards = 36 }) => {
   );
 };
 
+// --- SCREENTOP.GG SHEET SIZING ---
+// Screentop.gg rejects images over 4096px on either side (see asset-kit's
+// EXPORT_STANDARDS.md). Cards are only viewed on a virtual table, so exporting
+// 1:1 with the 280×392 card layout is sharp enough and keeps the sheet small.
+const SCREENTOP_MAX_SHEET_PX = 4096;
+const SCREENTOP_PIXEL_RATIO = 1;
+const CARD_WIDTH_PX = 280;
+const CARD_HEIGHT_PX = 392;
+const SCREENTOP_SHEET_COLUMNS = 10;
+const SCREENTOP_SHEET_WIDTH_PX = SCREENTOP_SHEET_COLUMNS * CARD_WIDTH_PX;
+const SCREENTOP_MAX_ROWS = Math.floor(SCREENTOP_MAX_SHEET_PX / (CARD_HEIGHT_PX * SCREENTOP_PIXEL_RATIO));
+const SCREENTOP_MAX_CARDS = SCREENTOP_SHEET_COLUMNS * SCREENTOP_MAX_ROWS;
+
 // --- MAIN APP COMPONENT FOR COLONY COLLAPSE ---
 export default function ColonyCollapseAssets() {
   const [cardTemplates, setCardTemplates] = useState(CARD_TEMPLATES);
@@ -558,7 +571,7 @@ export default function ColonyCollapseAssets() {
   const [selectedColor, setSelectedColor] = useState('ALL');
   const [selectedType, setSelectedType] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid', 'print', 'tts', 'backs'
+  const [viewMode, setViewMode] = useState('grid'); // 'grid', 'print', 'tts', 'screentop', 'backs'
   const [selectedCardModal, setSelectedCardModal] = useState(null);
   const [showCutLines, setShowCutLines] = useState(true);
   const [csvImportError, setCsvImportError] = useState(null);
@@ -658,7 +671,21 @@ export default function ColonyCollapseAssets() {
     if (!node) return;
 
     exportForTTS(node, {
-      filename: buildAssetFilename({ game: 'ColonyCollapse', variant: 'TTS_DeckSheet_10cols' }),
+      filename: buildAssetFilename({ game: 'ColonyCollapse', group: 'Cards', variant: 'TTS_DeckSheet_10cols' }),
+    }).catch((err) => console.error('Export error:', err));
+  };
+
+  const isDeckTooLargeForScreentop = deck.length > SCREENTOP_MAX_CARDS;
+  const screentopSheetHeightPx = Math.ceil(deck.length / SCREENTOP_SHEET_COLUMNS) * CARD_HEIGHT_PX;
+
+  // Export Screentop.gg card fronts sheet (backs share one image, exported from the Card Backs tab)
+  const exportScreentopSheet = () => {
+    const node = document.getElementById('screentop-sheet-export');
+    if (!node) return;
+
+    exportForScreentop(node, {
+      filename: buildAssetFilename({ game: 'ColonyCollapse', group: 'Cards', variant: `Screentop_${deck.length}Fronts` }),
+      pixelRatio: SCREENTOP_PIXEL_RATIO,
     }).catch((err) => console.error('Export error:', err));
   };
 
@@ -768,6 +795,15 @@ export default function ColonyCollapseAssets() {
               >
                 <FileImage className="w-4 h-4" />
                 TTS Sheet (10 Cols)
+              </button>
+              <button
+                onClick={() => setViewMode('screentop')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer ${
+                  viewMode === 'screentop' ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <FileImage className="w-4 h-4" />
+                Screentop Sheet
               </button>
               <button
                 onClick={() => setViewMode('backs')}
@@ -991,7 +1027,50 @@ export default function ColonyCollapseAssets() {
           </section>
         )}
 
-        {/* ---------------- VIEW MODE 4: CARD BACKS & SINGLE BACK EXPORT ---------------- */}
+        {/* ---------------- VIEW MODE 4: SCREENTOP.GG CARD FRONTS SHEET EXPORT ---------------- */}
+        {viewMode === 'screentop' && (
+          <section className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-slate-900 p-4 rounded-xl border border-slate-800 gap-4 no-print">
+              <div>
+                <h3 className="font-bold text-white text-lg flex items-center gap-2">
+                  <FileImage className="w-5 h-5 text-amber-400" />
+                  Screentop.gg Card Fronts Sheet ({SCREENTOP_SHEET_WIDTH_PX}×{screentopSheetHeightPx}px)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {deck.length} card fronts, {SCREENTOP_SHEET_COLUMNS} per row, {CARD_WIDTH_PX}×{CARD_HEIGHT_PX}px each, transparent background.
+                  All cards share one back — export it from the Card Backs tab.
+                </p>
+                {isDeckTooLargeForScreentop && (
+                  <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {deck.length} cards won't fit Screentop's {SCREENTOP_MAX_SHEET_PX}px limit (max {SCREENTOP_MAX_CARDS} per sheet).
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={exportScreentopSheet}
+                disabled={isDeckTooLargeForScreentop}
+                className="bg-amber-500 hover:bg-amber-400 disabled:bg-slate-700 disabled:text-slate-400 disabled:cursor-not-allowed text-slate-950 font-bold px-5 py-2.5 rounded-lg text-xs flex items-center gap-2 transition shadow-md cursor-pointer flex-shrink-0"
+              >
+                <Download className="w-4 h-4" /> Download Screentop Sheet PNG
+              </button>
+            </div>
+
+            <div className="overflow-auto bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-2xl">
+              <div
+                id="screentop-sheet-export"
+                className="p-0 m-0 leading-none select-none"
+                style={{ width: `${SCREENTOP_SHEET_WIDTH_PX}px`, display: 'grid', gridTemplateColumns: `repeat(${SCREENTOP_SHEET_COLUMNS}, ${CARD_WIDTH_PX}px)`, gap: 0 }}
+              >
+                {deck.map((card) => (
+                  <TTSCard key={card.uniqueId} card={card} totalCards={deck.length} />
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ---------------- VIEW MODE 5: CARD BACKS & SINGLE BACK EXPORT ---------------- */}
         {viewMode === 'backs' && (
           <section className="space-y-8">
             <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 no-print flex flex-col md:flex-row items-center justify-between gap-6">
