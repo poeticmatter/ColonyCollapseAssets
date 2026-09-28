@@ -773,74 +773,72 @@ const RallyOneGlyph = ({ size = 48 }) => {
   );
 };
 
-// Rally the single tile next to your pawn: the same rally hex, with a dot
-// on one corner marking the junction where the pawn sits.
+// Two touching tiles side by side - shared by the move and rally-adjacent
+// glyphs so the pawn's tile sits in the same spot in both.
+const PAIR_HEX_R = 10.5;
+const PAIR_LEFT = { x: 14.9, y: 24 };
+const PAIR_RIGHT = { x: PAIR_LEFT.x + Math.sqrt(3) * PAIR_HEX_R, y: 24 };
+
+// Rally a tile next to your pawn: the pawn's tile with a dot at its center,
+// and the adjacent tile climbing with the rally chevrons.
 const RallyAdjacentGlyph = ({ size = 48 }) => {
-  const [upper, lower] = chevronPair(24, 24, 16);
-  const pawnVertex = hexVerticesAt(24, 24, 16)[3];
+  const [upper, lower] = chevronPair(PAIR_RIGHT.x, PAIR_RIGHT.y, PAIR_HEX_R);
   return (
     <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-      <polygon points={hexPointsAt(24, 24, 16)} />
-      <path d={upper} strokeWidth="2.6" />
-      <path d={lower} strokeWidth="2.6" />
-      <circle cx={pawnVertex.x} cy={pawnVertex.y} r="3.4" fill="currentColor" stroke="none" />
+      <polygon points={hexPointsAt(PAIR_LEFT.x, PAIR_LEFT.y, PAIR_HEX_R)} />
+      <circle cx={PAIR_LEFT.x} cy={PAIR_LEFT.y} r="3.4" fill="currentColor" stroke="none" />
+      <polygon points={hexPointsAt(PAIR_RIGHT.x, PAIR_RIGHT.y, PAIR_HEX_R)} />
+      <path d={upper} strokeWidth="2.2" />
+      <path d={lower} strokeWidth="2.2" />
     </svg>
   );
 };
 
-// Rally the three tiles meeting at one junction: three hexes, touching,
-// each climbing with the same chevrons as a single-tile rally.
-const RALLY_JUNCTION_HEX_R = 11.5;
-const RALLY_JUNCTION_CENTERS = [
-  { x: 14, y: 32.65 },
-  { x: 34, y: 32.65 },
-  { x: 24, y: 15.4 }
+// Rally a tile and every tile around it: a full seven-hex flower, each hex
+// climbing with the same chevrons as a single-tile rally. Radius 8.5 is the
+// largest that fits the flower (3·√3·r wide, 5r tall) inside the 48 box.
+const RALLY_CLUSTER_HEX_R = 8.5;
+const RALLY_CLUSTER_CENTERS = [
+  { x: 24, y: 24 },
+  ...pointsOnRing(6, Math.sqrt(3) * RALLY_CLUSTER_HEX_R, 0)
 ];
 
-const RALLY_JUNCTION_VERTEX = { x: 24, y: 26.88 };
+// `markPair` draws the two strokes inside each hex - chevrons for the basic
+// rally, equals signs for the ties-count upgrade.
+const RallyClusterHexes = ({ markPair }) =>
+  RALLY_CLUSTER_CENTERS.map((center, idx) => {
+    const [upper, lower] = markPair(center.x, center.y, RALLY_CLUSTER_HEX_R);
+    return (
+      <g key={`rally-cluster-hex-${idx}`}>
+        <polygon points={hexPointsAt(center.x, center.y, RALLY_CLUSTER_HEX_R)} strokeWidth="1.6" />
+        <path d={upper} strokeWidth="1.8" />
+        <path d={lower} strokeWidth="1.8" />
+      </g>
+    );
+  });
 
-const RallyJunctionGlyph = ({ size = 48 }) => (
+const RallyClusterGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    {RALLY_JUNCTION_CENTERS.map((center, idx) => {
-      const [upper, lower] = chevronPair(center.x, center.y, RALLY_JUNCTION_HEX_R);
-      return (
-        <g key={`rally-junction-hex-${idx}`}>
-          <polygon points={hexPointsAt(center.x, center.y, RALLY_JUNCTION_HEX_R)} />
-          <path d={upper} strokeWidth="2.2" />
-          <path d={lower} strokeWidth="2.2" />
-        </g>
-      );
-    })}
-    <circle cx={RALLY_JUNCTION_VERTEX.x} cy={RALLY_JUNCTION_VERTEX.y} r="3.4" fill="currentColor" stroke="none" />
+    <RallyClusterHexes markPair={chevronPair} />
   </svg>
 );
 
-// The upgraded rally-a-junction: the same three touching hexes, but marked
-// with equals signs instead of chevrons - rallying is allowed on a tie too.
-const RallyJunctionEqualGlyph = ({ size = 48 }) => (
+// The upgraded rally-a-cluster: the same seven hexes, but marked with equals
+// signs instead of chevrons - rallying is allowed on a tie too.
+const RallyClusterEqualGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    {RALLY_JUNCTION_CENTERS.map((center, idx) => {
-      const [upper, lower] = equalsPair(center.x, center.y, RALLY_JUNCTION_HEX_R);
-      return (
-        <g key={`rally-junction-eq-hex-${idx}`}>
-          <polygon points={hexPointsAt(center.x, center.y, RALLY_JUNCTION_HEX_R)} />
-          <path d={upper} strokeWidth="2.2" />
-          <path d={lower} strokeWidth="2.2" />
-        </g>
-      );
-    })}
-    <circle cx={RALLY_JUNCTION_VERTEX.x} cy={RALLY_JUNCTION_VERTEX.y} r="3.4" fill="currentColor" stroke="none" />
+    <RallyClusterHexes markPair={equalsPair} />
   </svg>
 );
 
-// Move the pawn along a tile edge, from one junction to the next.
-const JunctionGlyph = ({ size = 48 }) => (
+// Move the pawn from the center of one tile to the center of the next.
+const MoveGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <polygon points={hexPointsAt(14, 24, 10)} opacity="0.5" />
-    <polygon points={hexPointsAt(31.3, 24, 10)} opacity="0.5" />
-    <circle cx="22.66" cy="19" r="3" />
-    <path d="M 22.66 22.4 L 22.66 25" strokeWidth="2.6" />
-    <path d="M 19.4 24.6 L 22.66 30 L 25.92 24.6 Z" fill="currentColor" stroke="none" />
+    <polygon points={hexPointsAt(PAIR_LEFT.x, PAIR_LEFT.y, PAIR_HEX_R)} opacity="0.5" />
+    <polygon points={hexPointsAt(PAIR_RIGHT.x, PAIR_RIGHT.y, PAIR_HEX_R)} opacity="0.5" />
+    <circle cx={PAIR_LEFT.x} cy={PAIR_LEFT.y} r="3.4" fill="currentColor" stroke="none" />
+    <path d={`M ${PAIR_LEFT.x + 5.5} 24 L ${PAIR_RIGHT.x} 24`} strokeWidth="2.6" />
+    <path d={`M ${PAIR_RIGHT.x - 4.2} 19.8 L ${PAIR_RIGHT.x} 24 L ${PAIR_RIGHT.x - 4.2} 28.2`} strokeWidth="2.6" />
   </svg>
 );
 
@@ -876,9 +874,9 @@ const ACTION_GLYPHS = {
   place: PlaceGlyph,
   rallyTile: RallyOneGlyph,
   rallyAdjacent: RallyAdjacentGlyph,
-  rallyJunction: RallyJunctionGlyph,
-  rallyJunctionEqual: RallyJunctionEqualGlyph,
-  junction: JunctionGlyph,
+  rallyCluster: RallyClusterGlyph,
+  rallyClusterEqual: RallyClusterEqualGlyph,
+  move: MoveGlyph,
   cards: CardsGlyph,
   draw: DrawGlyph,
   repeat: RepeatGlyph
@@ -895,10 +893,10 @@ const ICON_LEGEND_ENTRIES = [
     description: 'Move the dial up to N colonist slots around the ring.'
   },
   {
-    key: 'junction',
+    key: 'move',
     category: 'Turn & Movement',
     label: 'Move your pawn',
-    description: 'Move the shared pawn along tile edges, junction to junction.'
+    description: 'Move the shared pawn from the center of one tile to the center of an adjacent tile.'
   },
   {
     key: 'issueCard',
@@ -940,16 +938,16 @@ const ICON_LEGEND_ENTRIES = [
     key: 'rallyAdjacent',
     category: 'Rally',
     label: 'Rally, adjacent to pawn',
-    description: 'Rally the single tile at the junction where your pawn sits.'
+    description: 'Rally one tile adjacent to the tile your pawn is on.'
   },
   {
-    key: 'rallyJunction',
+    key: 'rallyCluster',
     category: 'Rally',
-    label: 'Rally a junction',
-    description: 'Rally the three tiles at one junction. Chevrons: you must be ahead on that issue.'
+    label: 'Rally a tile and its neighbors',
+    description: 'Rally a tile and each tile adjacent to it. Chevrons: you must be ahead on that issue.'
   },
   {
-    key: 'rallyJunctionEqual',
+    key: 'rallyClusterEqual',
     category: 'Rally',
     label: 'Rally, ties count',
     description: 'The same rally, but a tie on that issue is enough - you don’t need to be strictly ahead.'
@@ -1187,12 +1185,12 @@ const CC_ACTIONS = [
     name: 'Dance',
     Icon: Radio,
     basic: {
-      rows: [{ steps: [{ glyph: 'junction', repeat: true }, { glyph: 'rallyJunction' }] }],
-      text: 'Move the pawn N junctions along tile edges, then rally the 3 adjacent tiles.'
+      rows: [{ steps: [{ glyph: 'move', repeat: true }, { glyph: 'rallyCluster' }] }],
+      text: 'Move the pawn N tiles, then rally its tile and each adjacent tile.'
     },
     upgraded: {
-      rows: [{ steps: [{ glyph: 'junction', repeat: true }, { glyph: 'rallyJunctionEqual' }] }],
-      text: 'Move the pawn N junctions along tile edges, then rally the 3 adjacent tiles.',
+      rows: [{ steps: [{ glyph: 'move', repeat: true }, { glyph: 'rallyClusterEqual' }] }],
+      text: 'Move the pawn N tiles, then rally its tile and each adjacent tile.',
       bonus: 'You may rally issues on which you are tied.'
     }
   },
@@ -2356,7 +2354,10 @@ export default function ColonyCollapseBoardAssets() {
           )}
         </div>
 
-        <div id="cc-icon-legend">
+        {/* fit-content: as a plain block this wrapper stretches to the widest
+            sibling in the hidden export container (the tile sheets), which
+            leaves empty space to the right of the 1240px sheet. */}
+        <div id="cc-icon-legend" style={{ width: 'fit-content' }}>
           <ActionIconLegendSheet />
         </div>
       </div>
