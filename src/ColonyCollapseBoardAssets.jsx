@@ -158,7 +158,38 @@ const axialToPixel = (q, r, size) => ({
 
 const hexDistanceFromHub = (q, r) => Math.max(Math.abs(q), Math.abs(r), Math.abs(q + r));
 
+const findIssueCell = (district) => district.cells.find(([q, r]) => hexDistanceFromHub(q, r) === 1);
+
 const DISTRICT_COLORS = DISTRICT_LAYOUT.map((district) => district.color);
+
+// The alternate, rotationally symmetric board: each district is a plain
+// 1-2-3 triangle fanning out from its issue cell - 1 cell in the inner ring,
+// 2 in the middle, 3 on the rim. Offsets are [steps outward along the issue
+// cell's own direction, steps sideways toward the next corner clockwise].
+const TRIANGLE_DISTRICT_OFFSETS = [
+  [1, 0],
+  [2, 0],
+  [1, 1],
+  [3, 0],
+  [2, 1],
+  [1, 2]
+];
+
+// Built from the shipped layout's issue cells, so each color keeps its spot
+// in the inner ring and only the district shapes change.
+const TRIANGLE_DISTRICT_LAYOUT = DISTRICT_LAYOUT.map((district) => {
+  const [issueQ, issueR] = findIssueCell(district);
+  const cornerIndex = HEX_NEIGHBOR_DIRECTIONS.findIndex((direction) => direction.q === issueQ && direction.r === issueR);
+  const outward = HEX_NEIGHBOR_DIRECTIONS[cornerIndex];
+  const sideways = HEX_NEIGHBOR_DIRECTIONS[(cornerIndex + 1) % 6];
+  return {
+    color: district.color,
+    cells: TRIANGLE_DISTRICT_OFFSETS.map(([outSteps, sideSteps]) => [
+      outSteps * outward.q + sideSteps * sideways.q,
+      outSteps * outward.r + sideSteps * sideways.r
+    ])
+  };
+});
 
 // The round-number badge's fill runs from a deep gold (1) to the game's
 // brightest gold (5), so which slots activate early vs. late reads at a
@@ -211,21 +242,32 @@ const DEFAULT_OUTER_DISTRICTS = Object.fromEntries(
 const buildDistrictByAxial = (outerDistricts) => {
   const map = new Map();
   DISTRICT_LAYOUT.forEach((district, index) => {
-    const innerCell = district.cells.find(([q, r]) => hexDistanceFromHub(q, r) === 1);
+    const innerCell = findIssueCell(district);
     map.set(`${innerCell[0]},${innerCell[1]}`, index);
   });
   Object.entries(outerDistricts).forEach(([key, index]) => map.set(key, index));
   return map;
 };
 
-// Cells plus the border segments between districts, derived fresh from any
-// outer-cell assignment - the static export and the live district editor
-// both render through this, so they can never drift apart.
-// Numbers each district's own slot cells 1-5, middle ring before outer ring
-// (roughly inside to outside within each ring, ordered by angle around the
-// hub) - mutates the cell objects in place since buildBoardGeometry just
-// built them fresh.
-const assignRoundNumbers = (cells) => {
+const layoutToDistrictByAxial = (layout) =>
+  new Map(layout.flatMap((district, index) => district.cells.map(([q, r]) => [`${q},${r}`, index])));
+
+// Round-number sort keys within a ring. The shipped board orders by raw
+// angle around the hub (kept as-is so its printed numbers don't change);
+// the symmetric board measures from each district's own issue cell instead,
+// so every district gets the same numbering - raw atan2 wraps at ±180° and
+// would number the district straddling that seam differently.
+const angleAroundHub = (cell) => Math.atan2(cell.y, cell.x);
+
+const angleFromIssueCell = (cell, issueCell) => {
+  const delta = angleAroundHub(cell) - angleAroundHub(issueCell);
+  return Math.atan2(Math.sin(delta), Math.cos(delta));
+};
+
+// Numbers each district's own slot cells 1-5, middle ring before outer ring,
+// ordered by `sortAngle` within a ring - mutates the cell objects in place
+// since buildBoardGeometry just built them fresh.
+const assignRoundNumbers = (cells, sortAngle) => {
   const slotsByDistrict = new Map();
   cells.forEach((cell) => {
     if (cell.kind !== 'slot' || cell.district == null) return;
@@ -233,9 +275,10 @@ const assignRoundNumbers = (cells) => {
     slotsByDistrict.get(cell.district).push(cell);
   });
 
-  slotsByDistrict.forEach((districtSlots) => {
+  slotsByDistrict.forEach((districtSlots, district) => {
+    const issueCell = cells.find((cell) => cell.kind === 'issue' && cell.district === district);
     const ring = (cell) => hexDistanceFromHub(cell.q, cell.r);
-    const angle = (cell) => Math.atan2(cell.y, cell.x);
+    const angle = (cell) => sortAngle(cell, issueCell);
     const ordered = [...districtSlots].sort((a, b) => ring(a) - ring(b) || angle(a) - angle(b));
     ordered.forEach((cell, idx) => {
       cell.roundNumber = idx + 1;
@@ -243,8 +286,10 @@ const assignRoundNumbers = (cells) => {
   });
 };
 
-const buildBoardGeometry = (outerDistricts) => {
-  const districtByAxial = buildDistrictByAxial(outerDistricts);
+// Cells plus the border segments between districts, derived fresh from a
+// district assignment - the static exports and the live district editor
+// all render through this, so they can never drift apart.
+const buildBoardGeometry = ({ districtByAxial, sortAngle }) => {
   const cells = [];
   for (let q = -BOARD_RINGS; q <= BOARD_RINGS; q += 1) {
     for (let r = -BOARD_RINGS; r <= BOARD_RINGS; r += 1) {
@@ -265,7 +310,7 @@ const buildBoardGeometry = (outerDistricts) => {
     }
   }
 
-  assignRoundNumbers(cells);
+  assignRoundNumbers(cells, sortAngle);
 
   const byAxial = new Map(cells.map((cell) => [`${cell.q},${cell.r}`, cell]));
   const borderSegments = [];
@@ -286,7 +331,7 @@ const buildBoardGeometry = (outerDistricts) => {
 // so a shape drawn in the editor can be made the new shipped default.
 const generateDistrictLayoutCode = (outerDistricts) => {
   const lines = DISTRICT_LAYOUT.map((district, index) => {
-    const innerCell = district.cells.find(([q, r]) => hexDistanceFromHub(q, r) === 1);
+    const innerCell = findIssueCell(district);
     const outerCells = Object.entries(outerDistricts)
       .filter(([, districtIndex]) => districtIndex === index)
       .map(([key]) => key.split(',').map(Number));
@@ -296,7 +341,15 @@ const generateDistrictLayoutCode = (outerDistricts) => {
   return `const DISTRICT_LAYOUT = [\n${lines.join(',\n')}\n];`;
 };
 
-const DEFAULT_BOARD_GEOMETRY = buildBoardGeometry(DEFAULT_OUTER_DISTRICTS);
+const buildEditableBoardGeometry = (outerDistricts) =>
+  buildBoardGeometry({ districtByAxial: buildDistrictByAxial(outerDistricts), sortAngle: angleAroundHub });
+
+const DEFAULT_BOARD_GEOMETRY = buildEditableBoardGeometry(DEFAULT_OUTER_DISTRICTS);
+
+const TRIANGLE_BOARD_GEOMETRY = buildBoardGeometry({
+  districtByAxial: layoutToDistrictByAxial(TRIANGLE_DISTRICT_LAYOUT),
+  sortAngle: angleFromIssueCell
+});
 const BOARD_CELLS = DEFAULT_BOARD_GEOMETRY.cells;
 const DISTRICT_BORDER_SEGMENTS = DEFAULT_BOARD_GEOMETRY.borderSegments;
 
@@ -1542,8 +1595,13 @@ export default function ColonyCollapseBoardAssets() {
   const [activeDistrictBrush, setActiveDistrictBrush] = useState(0);
   const [districtCodeCopied, setDistrictCodeCopied] = useState(false);
 
-  const liveBoardGeometry = useMemo(() => buildBoardGeometry(outerDistricts), [outerDistricts]);
-  const boardGeometry = districtEditorOpen ? liveBoardGeometry : DEFAULT_BOARD_GEOMETRY;
+  const [boardVariant, setBoardVariant] = useState('irregular'); // 'irregular' | 'triangles'
+  const isTriangleBoard = boardVariant === 'triangles';
+
+  const liveBoardGeometry = useMemo(() => buildEditableBoardGeometry(outerDistricts), [outerDistricts]);
+  const isEditingDistricts = districtEditorOpen && !isTriangleBoard;
+  const irregularBoardGeometry = isEditingDistricts ? liveBoardGeometry : DEFAULT_BOARD_GEOMETRY;
+  const boardGeometry = isTriangleBoard ? TRIANGLE_BOARD_GEOMETRY : irregularBoardGeometry;
 
   const districtOuterCounts = useMemo(
     () => DISTRICT_COLORS.map((_, index) => Object.values(outerDistricts).filter((d) => d === index).length),
@@ -1632,7 +1690,8 @@ export default function ColonyCollapseBoardAssets() {
   const exportBoard = () =>
     runExport('board', async () => {
       const dataUrl = await renderNodeToPng('cc-board-export', { transparent: false });
-      triggerDownload(dataUrl, 'ColonyCollapse_Board_7across.png');
+      const fileName = isTriangleBoard ? 'ColonyCollapse_Board_7across_Triangles.png' : 'ColonyCollapse_Board_7across.png';
+      triggerDownload(dataUrl, fileName);
     });
 
   const exportDisplayBoard = () =>
@@ -1908,23 +1967,44 @@ export default function ColonyCollapseBoardAssets() {
               >
                 <Download className="w-4 h-4" /> Board PNG ({BOARD_WIDTH * EXPORT_PIXEL_RATIO}px)
               </button>
-              <button
-                onClick={() => setDistrictEditorOpen((open) => !open)}
-                className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 cursor-pointer border transition-colors ${
-                  districtEditorOpen
-                    ? 'bg-amber-500 text-slate-950 border-amber-400'
-                    : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700'
-                }`}
-              >
-                <Edit3 className="w-4 h-4" /> {districtEditorOpen ? 'Done drawing districts' : 'Draw districts'}
-              </button>
+              <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1">
+                {[
+                  { id: 'irregular', label: 'Irregular districts' },
+                  { id: 'triangles', label: 'Triangle districts' }
+                ].map((variant) => (
+                  <button
+                    key={variant.id}
+                    onClick={() => setBoardVariant(variant.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-bold cursor-pointer transition-colors ${
+                      boardVariant === variant.id ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    {variant.label}
+                  </button>
+                ))}
+              </div>
+              {!isTriangleBoard && (
+                <button
+                  onClick={() => setDistrictEditorOpen((open) => !open)}
+                  className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 cursor-pointer border transition-colors ${
+                    districtEditorOpen
+                      ? 'bg-amber-500 text-slate-950 border-amber-400'
+                      : 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700'
+                  }`}
+                >
+                  <Edit3 className="w-4 h-4" /> {districtEditorOpen ? 'Done drawing districts' : 'Draw districts'}
+                </button>
+              )}
               <p className="text-xs text-slate-500 max-w-md">
                 Hub in the middle, the six issue colors in the inner ring (never flipped, so no
-                leaf), and 30 empty slots. Six irregular districts of 6 cells, one issue each.
+                leaf), and 30 empty slots.{' '}
+                {isTriangleBoard
+                  ? 'Six identical 1-2-3 triangle districts, rotationally symmetric, one issue each.'
+                  : 'Six irregular districts of 6 cells, one issue each.'}
               </p>
             </div>
 
-            {districtEditorOpen && (
+            {isEditingDistricts && (
               <div className="mb-5 bg-slate-900 border border-amber-500/30 rounded-2xl p-4 no-print">
                 <p className="text-sm text-slate-300 mb-3">
                   Click a dashed slot to paint it into the selected district. Each district's
@@ -1989,9 +2069,9 @@ export default function ColonyCollapseBoardAssets() {
               <BoardSVG
                 cells={boardGeometry.cells}
                 borderSegments={boardGeometry.borderSegments}
-                interactive={districtEditorOpen}
-                activeDistrictIndex={districtEditorOpen ? activeDistrictBrush : null}
-                onCellClick={districtEditorOpen ? paintDistrictCell : undefined}
+                interactive={isEditingDistricts}
+                activeDistrictIndex={isEditingDistricts ? activeDistrictBrush : null}
+                onCellClick={isEditingDistricts ? paintDistrictCell : undefined}
               />
             </div>
           </section>
