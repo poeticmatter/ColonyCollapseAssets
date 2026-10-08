@@ -383,31 +383,29 @@ const CardBackGraphicSVG = () => (
 
 // --- CARD COLOR PAIR PIECES ---
 // A card belongs equally to both of its colors, so nothing on it favors one:
-// the banner splits evenly down the middle, each half gets its own issue
-// badge, and the trim, type bubble and watermark all stay neutral.
+// every banner is the same plain slate, and the two colors live only in the
+// pair of issue badges at its top left. Slate rather than a light tone, so
+// even the palest chalk color (Stone) stands out clearly as a badge.
 const CARD_NEUTRAL_INK = '#1F2937';
 const CARD_NEUTRAL_TRIM = '#475569';
+const CARD_BANNER_COLOR = '#1E293B';
+const CARD_BANNER_TITLE_COLOR = '#F8F4EA';
 
-// Blending two issue colors straight into each other muddies the middle into
-// a third, unrelated hue, so each side fades into a neutral chalk cream
-// instead. The cream center also sits behind the title, keeping it legible.
-const BANNER_NEUTRAL_MIDDLE = '#ECE5D6';
-
-const splitBannerBackground = ([first, second]) =>
-  `linear-gradient(90deg, ${CC_COLOR_HEX[first]} 0%, ${CC_COLOR_HEX[first]} 10%, ${BANNER_NEUTRAL_MIDDLE} 34%, ${BANNER_NEUTRAL_MIDDLE} 66%, ${CC_COLOR_HEX[second]} 90%, ${CC_COLOR_HEX[second]} 100%)`;
-
-const splitTrimBackground = ([first, second]) =>
-  `linear-gradient(90deg, ${CC_COLOR_DEEP_HEX[first]} 50%, ${CC_COLOR_DEEP_HEX[second]} 50%)`;
-
-// Filled in its own color, so each badge still reads as that color even
-// where the banner blends into its neighbor.
 const ColorBadge = ({ color, iconSize, className }) => (
   <span
-    className={`absolute z-10 flex items-center justify-center rounded-full border-2 ${className}`}
+    className={`flex items-center justify-center rounded-full border-2 ${className}`}
     style={{ backgroundColor: CC_COLOR_HEX[color], borderColor: CC_COLOR_DEEP_HEX[color] }}
   >
     <IssueSymbol color={color} size={iconSize} strokeWidth={2.6} />
   </span>
+);
+
+const ColorBadgePair = ({ colors, iconSize, badgeClassName }) => (
+  <div className="self-start flex items-center gap-1">
+    {colors.map((color) => (
+      <ColorBadge key={color} color={color} iconSize={iconSize} className={badgeClassName} />
+    ))}
+  </div>
 );
 
 const ColorIconPair = ({ colors, size }) => (
@@ -420,7 +418,6 @@ const ColorIconPair = ({ colors, size }) => (
 
 // --- MAIN SINGLE CARD RENDER COMPONENT ---
 const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
-  const [leftColor, rightColor] = card.colors;
   const isImmediate = card.type === 'Immediate';
 
   return (
@@ -431,19 +428,17 @@ const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
     >
       {/* 1. TOP COLOR BANNER (Occupies approx 28% of card) */}
       <div
-        className="relative h-[28%] w-full px-3 py-2.5 flex items-center justify-center overflow-hidden text-center"
-        style={{ background: splitBannerBackground(card.colors), color: CARD_NEUTRAL_INK }}
+        className="relative h-[28%] w-full px-1.5 pt-1.5 pb-2 flex flex-col overflow-hidden text-center"
+        style={{ background: CARD_BANNER_COLOR, color: CARD_BANNER_TITLE_COLOR }}
       >
         {/* Issue glyphs: the color-blind readable half of the card's identity */}
-        <ColorBadge color={leftColor} iconSize={14} className="top-1.5 left-1.5 w-7 h-7" />
-        <ColorBadge color={rightColor} iconSize={14} className="top-1.5 right-1.5 w-7 h-7" />
+        <ColorBadgePair colors={card.colors} iconSize={14} badgeClassName="w-7 h-7" />
 
         {/* Card Title */}
-        <h3 className="relative z-10 text-base sm:text-lg font-black tracking-tight leading-tight my-auto px-7">
+        <h3 className="flex-1 flex items-center justify-center text-base sm:text-lg font-black tracking-tight leading-tight px-2">
           {card.title}
         </h3>
       </div>
-      <div className="h-[2px] w-full flex-shrink-0" style={{ background: splitTrimBackground(card.colors) }} />
 
       {/* 2. CARD BODY AREA (Occupies approx 72% light readable area) */}
       <div className="relative flex-1 p-3 flex flex-col justify-between bg-[#FDFBF7] text-slate-900">
@@ -494,7 +489,6 @@ const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
 
 // --- TABLETOP SIMULATOR (TTS) CARD COMPONENT (Edge-to-edge 0 gap, full size, sharp square corners) ---
 const TTSCard = ({ card, totalCards = 36 }) => {
-  const [leftColor, rightColor] = card.colors;
   const isImmediate = card.type === 'Immediate';
 
   return (
@@ -504,19 +498,17 @@ const TTSCard = ({ card, totalCards = 36 }) => {
     >
       {/* 1. TOP COLOR BANNER (28% of card) */}
       <div
-        className="relative h-[28%] w-full px-3.5 py-3 flex items-center justify-center overflow-hidden text-center"
-        style={{ background: splitBannerBackground(card.colors), color: CARD_NEUTRAL_INK }}
+        className="relative h-[28%] w-full px-2 pt-2 pb-2.5 flex flex-col overflow-hidden text-center"
+        style={{ background: CARD_BANNER_COLOR, color: CARD_BANNER_TITLE_COLOR }}
       >
         {/* Issue glyphs: the color-blind readable half of the card's identity */}
-        <ColorBadge color={leftColor} iconSize={17} className="top-2 left-2 w-8 h-8" />
-        <ColorBadge color={rightColor} iconSize={17} className="top-2 right-2 w-8 h-8" />
+        <ColorBadgePair colors={card.colors} iconSize={17} badgeClassName="w-8 h-8" />
 
         {/* Card Title */}
-        <h3 className="relative z-10 text-lg font-black tracking-tight leading-tight my-auto px-9">
+        <h3 className="flex-1 flex items-center justify-center text-lg font-black tracking-tight leading-tight px-3">
           {card.title}
         </h3>
       </div>
-      <div className="h-[3px] w-full flex-shrink-0" style={{ background: splitTrimBackground(card.colors) }} />
 
       {/* 2. CARD BODY AREA (72% light area) */}
       <div className="relative flex-1 p-3.5 flex flex-col justify-between bg-[#FDFBF7] text-slate-900">
