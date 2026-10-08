@@ -650,16 +650,17 @@ const DISPLAY_HEX_GAP = 12;
 // radius equals the centre-to-centre distance: two apothems plus the gap.
 const DISPLAY_RING_R = 2 * DISPLAY_HEX_APOTHEM + DISPLAY_HEX_GAP;
 const DISPLAY_BADGE_R = 40;
-const DISPLAY_BADGE_GAP = 20;
+// Wide enough for a short arrow pointing from each slot out to its badge.
+const DISPLAY_BADGE_GAP = 46;
+const DISPLAY_ARROW_CLEARANCE = 9; // space left at each end of the arrow
+const DISPLAY_ARROW_HEAD = { length: 12, halfWidth: 8 };
+const DISPLAY_ARROW_SHAFT_WIDTH = 4;
 // Each slot faces outward with a flat side, so the badge clears it by the apothem.
 const DISPLAY_BADGE_RING_R = DISPLAY_RING_R + DISPLAY_HEX_APOTHEM + DISPLAY_BADGE_GAP + DISPLAY_BADGE_R;
 const DISPLAY_DIAL_R = 75;
 const DISPLAY_MARGIN = 30;
-const DISPLAY_BOARD_SIZE = (DISPLAY_BADGE_RING_R + DISPLAY_BADGE_R + DISPLAY_MARGIN) * 2;
-const DISPLAY_BADGE_MARK_SIZE = 17;
-// The board's pip offsets, opened up a little so the wider question marks
-// don't crowd each other.
-const DISPLAY_BADGE_MARK_SPREAD = 1.25;
+// Rounded up to whole pixels so the export has a clean size.
+const DISPLAY_BOARD_SIZE = Math.ceil((DISPLAY_BADGE_RING_R + DISPLAY_BADGE_R + DISPLAY_MARGIN) * 2);
 const DISPLAY_BOARD_CENTER = { x: DISPLAY_BOARD_SIZE / 2, y: DISPLAY_BOARD_SIZE / 2 };
 
 // Turns the whole ring 30° clockwise from straight-up so each slot lines up
@@ -677,6 +678,30 @@ const DISPLAY_POSITIONS = CC_COLOR_ORDER.map((color, idx) => {
     badge: { x: DISPLAY_BADGE_RING_R * Math.cos(angle), y: DISPLAY_BADGE_RING_R * Math.sin(angle) }
   };
 });
+
+// Drawn in a slot's own frame (origin at the hex centre, +x pointing outward),
+// spanning the gap between the hex's flat outer side and its badge.
+const DisplaySlotArrow = () => {
+  const tailX = DISPLAY_HEX_APOTHEM + DISPLAY_ARROW_CLEARANCE;
+  const tipX = DISPLAY_HEX_APOTHEM + DISPLAY_BADGE_GAP - DISPLAY_ARROW_CLEARANCE;
+  const headBaseX = tipX - DISPLAY_ARROW_HEAD.length;
+  const shaftHalfWidth = DISPLAY_ARROW_SHAFT_WIDTH / 2;
+  return (
+    <polygon
+      points={[
+        [tailX, -shaftHalfWidth],
+        [headBaseX, -shaftHalfWidth],
+        [headBaseX, -DISPLAY_ARROW_HEAD.halfWidth],
+        [tipX, 0],
+        [headBaseX, DISPLAY_ARROW_HEAD.halfWidth],
+        [headBaseX, shaftHalfWidth],
+        [tailX, shaftHalfWidth]
+      ]
+        .map(([x, y]) => `${x.toFixed(2)},${y}`)
+        .join(' ')}
+    />
+  );
+};
 
 export { default as DialTokenSVG } from './ColonyCollapseDialToken.jsx';
 import DialTokenSVG from './ColonyCollapseDialToken.jsx';
@@ -783,37 +808,38 @@ export const DisplayBoardSVG = ({
         </g>
       ))}
 
-      {/* 4. The 6 color badges: five question marks in the dice "5" layout,
-          the same pip arrangement as the board's round badges. */}
+      {/* 4. Short arrows from each slot out to its badge */}
       {DISPLAY_POSITIONS.map((pos) => (
-        <g key={`badge-${pos.color}`}>
-          <circle
-            cx={pos.badge.x}
-            cy={pos.badge.y}
-            r={DISPLAY_BADGE_R}
-            fill={CC_COLOR_HEX[pos.color]}
-            stroke={CC_COLOR_DEEP_HEX[pos.color]}
-            strokeWidth="3.5"
-          />
-          {ROUND_PIP_LAYOUTS[ROUND_PIP_LAYOUTS.length - 1].map(([dx, dy], markIdx) => (
-            <text
-              key={markIdx}
-              x={pos.badge.x + dx * DISPLAY_BADGE_MARK_SPREAD}
-              y={pos.badge.y + dy * DISPLAY_BADGE_MARK_SPREAD}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontFamily="system-ui, sans-serif"
-              fontSize={DISPLAY_BADGE_MARK_SIZE}
-              fontWeight="900"
-              fill={CC_COLOR_INK[pos.color]}
-            >
-              ?
-            </text>
-          ))}
+        <g
+          key={`arrow-${pos.color}`}
+          transform={`translate(${pos.hex.x}, ${pos.hex.y}) rotate(${pos.angleDeg})`}
+          fill={CC_COLOR_HEX[pos.color]}
+        >
+          <DisplaySlotArrow />
         </g>
       ))}
 
-      {/* 5. Optional dial token overlay for previewing */}
+      {/* 5. The 6 color badges */}
+      {DISPLAY_POSITIONS.map((pos) => {
+        const iconSize = DISPLAY_BADGE_R * 0.85;
+        return (
+          <g key={`badge-${pos.color}`}>
+            <circle
+              cx={pos.badge.x}
+              cy={pos.badge.y}
+              r={DISPLAY_BADGE_R}
+              fill={CC_COLOR_HEX[pos.color]}
+              stroke={CC_COLOR_DEEP_HEX[pos.color]}
+              strokeWidth="3.5"
+            />
+            <g transform={`translate(${pos.badge.x - iconSize / 2}, ${pos.badge.y - iconSize / 2})`}>
+              <IssueSymbol color={pos.color} size={iconSize} strokeWidth={2.2} colorHex={CC_COLOR_INK[pos.color]} />
+            </g>
+          </g>
+        );
+      })}
+
+      {/* 6. Optional dial token overlay for previewing */}
       {showDialToken && (
         <g transform={`rotate(${dialAngle + 90}) scale(${DISPLAY_DIAL_R / 80}) translate(-120, -120)`}>
           <DialTokenSVG />
