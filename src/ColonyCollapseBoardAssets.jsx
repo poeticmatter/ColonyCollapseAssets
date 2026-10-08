@@ -378,25 +378,29 @@ const HubBeeEmblem = ({ cx, cy, scale = 1.5 }) => (
 );
 
 // District borders are drawn as narrow parks: a strip of grass, edged dark so
-// it reads against both chalk issue cells and the dark slots, scattered with
-// wildflower patches. Each patch is one colour of dots, packed tight at its
-// heart and thinning out toward its ragged edge.
+// it reads against both chalk issue cells and the dark slots, with wildflowers
+// growing in from its edges. Each wildflower patch is an imaginary circle
+// centred on one edge of the grass, alternating sides along the border; its
+// dots crowd near the centre and thin out toward the rim, and only the dots
+// that land on the grass are drawn, so patches never spill onto the cells.
 const PARK_EDGE_COLOR = '#12261A';
 const PARK_EDGE_WIDTH = 26;
 const PARK_GRASS_COLOR = '#3F7A3B';
 const PARK_GRASS_WIDTH = 21;
+const PARK_GRASS_HALF_WIDTH = PARK_GRASS_WIDTH / 2;
 const PARK_PATCH_COLORS = ['#FFF6E5', '#F4A9C8', '#FFD447', '#C7B4F0', '#F28C6B'];
-const PARK_PATCH_ANCHORS = [0.27, 0.73]; // fraction of the way along a segment
-const PARK_PATCH_ANCHOR_JITTER = 0.05;
-const PARK_PATCH_HALF_LENGTH = { min: 15, max: 21 };
-const PARK_PATCH_DOT_COUNT = { min: 30, max: 42 };
-const PARK_DOT_R = { heart: 1.5, rim: 0.8 };
-// Patches sit on the strip's centre line and span its full width, so their
-// outermost dots just touch the dark edging on both sides.
-const PARK_PATCH_HALF_WIDTH = PARK_GRASS_WIDTH / 2 - PARK_DOT_R.rim;
+const PARK_PATCH_RADIUS = 16;
+// Neighbouring circles sit on opposite edges; spacing them so their centres
+// are this fraction of a diameter apart makes them overlap slightly.
+const PARK_PATCH_OVERLAP_SPACING = 0.9;
+const PARK_PATCH_STEP = Math.sqrt(
+  (2 * PARK_PATCH_RADIUS * PARK_PATCH_OVERLAP_SPACING) ** 2 - PARK_GRASS_WIDTH ** 2
+);
+const PARK_PATCH_DOT_COUNT = 44; // before trimming the dots that fall off the grass
+const PARK_DOT_R = { heart: 1.4, rim: 0.7 };
 // Raising a uniform 0-1 draw to this power bunches dots toward the patch's
 // centre; 1 would spread them evenly by radius, higher clusters harder.
-const PARK_DOT_CLUSTERING = 1.5;
+const PARK_DOT_CLUSTERING = 1.6;
 
 // Mulberry32: a tiny seeded PRNG. Seeding it from the segment index keeps
 // the patches organic-looking while every render and export stays identical.
@@ -410,47 +414,60 @@ const createSeededRandom = (seed) => {
   };
 };
 
-const randomBetween = (random, { min, max }) => min + random() * (max - min);
+const isOnGrass = (dot, segmentLength) =>
+  Math.abs(dot.y) <= PARK_GRASS_HALF_WIDTH - dot.r && dot.x >= 0 && dot.x <= segmentLength;
 
-// Dot offsets in the patch's own frame: x runs along the border, y across it.
-const buildPatchDots = (random) => {
-  const halfLength = randomBetween(random, PARK_PATCH_HALF_LENGTH);
-  const dotCount = Math.round(randomBetween(random, PARK_PATCH_DOT_COUNT));
-  return Array.from({ length: dotCount }, () => {
+// Dots in the segment's own frame: x runs along the border from its start,
+// y runs across it from the centre line.
+const buildPatchDots = (random, center, segmentLength) =>
+  Array.from({ length: PARK_PATCH_DOT_COUNT }, () => {
     const radiusFraction = random() ** PARK_DOT_CLUSTERING;
     const angle = random() * 2 * Math.PI;
     return {
-      x: Math.cos(angle) * radiusFraction * halfLength,
-      y: Math.sin(angle) * radiusFraction * PARK_PATCH_HALF_WIDTH,
+      x: center.x + Math.cos(angle) * radiusFraction * PARK_PATCH_RADIUS,
+      y: center.y + Math.sin(angle) * radiusFraction * PARK_PATCH_RADIUS,
       r: PARK_DOT_R.heart + (PARK_DOT_R.rim - PARK_DOT_R.heart) * radiusFraction
     };
-  });
-};
+  }).filter((dot) => isOnGrass(dot, segmentLength));
 
 const patchesAlongSegment = ({ from, to }, segmentIdx) => {
   const random = createSeededRandom(segmentIdx + 1);
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
-  return PARK_PATCH_ANCHORS.map((anchor) => {
-    const along = anchor + (random() * 2 - 1) * PARK_PATCH_ANCHOR_JITTER;
+  const segmentLength = Math.hypot(to.x - from.x, to.y - from.y);
+  const patchCount = Math.floor(segmentLength / PARK_PATCH_STEP);
+  const firstPatchX = (segmentLength - (patchCount - 1) * PARK_PATCH_STEP) / 2;
+  let previousColorIdx = -1;
+  return Array.from({ length: patchCount }, (_, patchIdx) => {
+    const side = patchIdx % 2 === 0 ? -1 : 1;
+    // Overlapping neighbours never share a colour, or they'd merge into one blob.
+    const colorOffset = 1 + Math.floor(random() * (PARK_PATCH_COLORS.length - 1));
+    const colorIdx =
+      previousColorIdx < 0
+        ? Math.floor(random() * PARK_PATCH_COLORS.length)
+        : (previousColorIdx + colorOffset) % PARK_PATCH_COLORS.length;
+    previousColorIdx = colorIdx;
+    const center = { x: firstPatchX + patchIdx * PARK_PATCH_STEP, y: side * PARK_GRASS_HALF_WIDTH };
     return {
-      x: from.x + dx * along,
-      y: from.y + dy * along,
-      angleDeg,
-      color: PARK_PATCH_COLORS[Math.floor(random() * PARK_PATCH_COLORS.length)],
-      dots: buildPatchDots(random)
+      color: PARK_PATCH_COLORS[colorIdx],
+      dots: buildPatchDots(random, center, segmentLength)
     };
   });
 };
 
-const ParkPatch = ({ x, y, angleDeg, color, dots }) => (
-  <g transform={`translate(${x}, ${y}) rotate(${angleDeg})`} fill={color}>
-    {dots.map((dot, dotIdx) => (
-      <circle key={dotIdx} cx={dot.x} cy={dot.y} r={dot.r} />
-    ))}
-  </g>
-);
+const SegmentWildflowers = ({ segment, segmentIdx }) => {
+  const { from, to } = segment;
+  const angleDeg = (Math.atan2(to.y - from.y, to.x - from.x) * 180) / Math.PI;
+  return (
+    <g transform={`translate(${from.x}, ${from.y}) rotate(${angleDeg})`}>
+      {patchesAlongSegment(segment, segmentIdx).map((patch, patchIdx) => (
+        <g key={patchIdx} fill={patch.color}>
+          {patch.dots.map((dot, dotIdx) => (
+            <circle key={dotIdx} cx={dot.x} cy={dot.y} r={dot.r} />
+          ))}
+        </g>
+      ))}
+    </g>
+  );
+};
 
 const ParkStrip = ({ borderSegments, stroke, strokeWidth }) => (
   <g strokeLinecap="round" stroke={stroke} strokeWidth={strokeWidth}>
@@ -464,11 +481,9 @@ const DistrictParkBorders = ({ borderSegments }) => (
   <g>
     <ParkStrip borderSegments={borderSegments} stroke={PARK_EDGE_COLOR} strokeWidth={PARK_EDGE_WIDTH} />
     <ParkStrip borderSegments={borderSegments} stroke={PARK_GRASS_COLOR} strokeWidth={PARK_GRASS_WIDTH} />
-    {borderSegments.flatMap((segment, segmentIdx) =>
-      patchesAlongSegment(segment, segmentIdx).map((patch, patchIdx) => (
-        <ParkPatch key={`${segmentIdx}-${patchIdx}`} {...patch} />
-      ))
-    )}
+    {borderSegments.map((segment, segmentIdx) => (
+      <SegmentWildflowers key={segmentIdx} segment={segment} segmentIdx={segmentIdx} />
+    ))}
   </g>
 );
 
