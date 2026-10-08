@@ -11,6 +11,7 @@ import {
 } from './colonyCollapsePalette.js';
 import IssueSymbol from './ColonyCollapseIssueSymbol.jsx';
 import BeeMark from './ColonyCollapseBeeMark.jsx';
+import CardFace from './ColonyCollapseCardFace.jsx';
 
 // --- COLOR PALETTE & SCHEMES ---
 // Chalk issue colors are light, so every scheme carries an ink tone for text
@@ -342,175 +343,23 @@ const CardBackGraphicSVG = () => (
   </svg>
 );
 
-// --- CARD COLOR PAIR PIECES ---
-// A card belongs equally to both of its colors, so nothing on it favors one.
-// The top of the card is two separate bars: a plain slate title bar that is
-// identical on every card, and below it a light icon bar holding the two
-// issue badges side by side at equal size.
-const CARD_NEUTRAL_INK = '#1F2937';
-const CARD_NEUTRAL_TRIM = '#475569';
-const CARD_BANNER_COLOR = '#1E293B';
-const CARD_BANNER_TITLE_COLOR = '#F8F4EA';
-const CARD_ICON_BAR_COLOR = '#E9E3D5';
-
-const ColorBadge = ({ color, iconSize, className }) => (
-  <span
-    className={`flex items-center justify-center rounded-full ${className}`}
-    style={{ backgroundColor: CC_COLOR_HEX[color], borderColor: CC_COLOR_DEEP_HEX[color] }}
-  >
-    <IssueSymbol color={color} size={iconSize} strokeWidth={2.6} />
-  </span>
-);
-
-const CardTitleBar = ({ title, className }) => (
+// --- CARD FRONTS ---
+// Both views render the same CardFace; they differ only in their frame.
+const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => (
   <div
-    className={`w-full flex items-center justify-center text-center font-black tracking-tight leading-tight ${className}`}
-    style={{ background: CARD_BANNER_COLOR, color: CARD_BANNER_TITLE_COLOR }}
+    onClick={() => onSelectCard && onSelectCard(card)}
+    className="group relative w-full aspect-[2.5/3.5] rounded-xl overflow-hidden shadow-lg transition-all duration-200 hover:shadow-2xl hover:-translate-y-1 cursor-pointer select-none"
   >
-    <h3>{title}</h3>
+    <CardFace card={card} totalCards={totalCards} />
   </div>
 );
 
-// Issue glyphs: the color-blind readable half of the card's identity.
-const CardIconBar = ({ colors, iconSize, className, badgeClassName }) => (
-  <div
-    className={`w-full flex items-center justify-center border-b-2 ${className}`}
-    style={{ background: CARD_ICON_BAR_COLOR, borderBottomColor: CARD_NEUTRAL_TRIM }}
-  >
-    {colors.map((color) => (
-      <ColorBadge key={color} color={color} iconSize={iconSize} className={badgeClassName} />
-    ))}
+// TABLETOP SIMULATOR (TTS) CARD: edge-to-edge, true export size, square corners.
+const TTSCard = ({ card, totalCards = 36 }) => (
+  <div className="relative w-[280px] h-[392px] overflow-hidden box-border border-b border-r border-slate-400">
+    <CardFace card={card} totalCards={totalCards} />
   </div>
 );
-
-const ColorIconPair = ({ colors, size }) => (
-  <span className="flex items-center gap-0.5">
-    {colors.map((color) => (
-      <IssueSymbol key={color} color={color} size={size} strokeWidth={2.6} />
-    ))}
-  </span>
-);
-
-// --- MAIN SINGLE CARD RENDER COMPONENT ---
-const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
-  const isImmediate = card.type === 'Immediate';
-
-  return (
-    <div
-      onClick={() => onSelectCard && onSelectCard(card)}
-      className="group relative w-full aspect-[2.5/3.5] rounded-xl overflow-hidden shadow-lg border-2 bg-white flex flex-col justify-between transition-all duration-200 hover:shadow-2xl hover:-translate-y-1 cursor-pointer select-none"
-      style={{ borderColor: CARD_NEUTRAL_TRIM }}
-    >
-      {/* 1. TITLE BAR + ICON BAR (together approx 30% of card) */}
-      <CardTitleBar title={card.title} className="h-[12%] flex-shrink-0 px-2 text-base sm:text-lg" />
-      <CardIconBar
-        colors={card.colors}
-        iconSize="60%"
-        className="h-[18%] flex-shrink-0 gap-3"
-        badgeClassName="h-[84%] aspect-square border-[3px]"
-      />
-
-      {/* 2. CARD BODY AREA (Occupies approx 72% light readable area) */}
-      <div className="relative flex-1 p-3 flex flex-col justify-between bg-[#FDFBF7] text-slate-900">
-        {/* Ability Type Indicator Bar */}
-        <div className="relative z-10 flex items-center gap-2 pb-1.5 border-b border-slate-200">
-          <span
-            className="flex items-center justify-center w-7 h-7 rounded-full text-white font-black shadow-md flex-shrink-0"
-            style={{ backgroundColor: CARD_NEUTRAL_INK }}
-          >
-            {isImmediate ? <Zap className="w-4 h-4 fill-current" /> : <RotateCw className="w-4 h-4" />}
-          </span>
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-            {isImmediate ? 'Immediate Action' : 'Ongoing Effect'}
-          </span>
-        </div>
-
-        {/* Ability Main Text Box */}
-        <div className="relative z-10 my-auto py-2 px-2.5 rounded-lg bg-white/80 border border-slate-200/80 shadow-xs">
-          <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-snug">
-            {card.effect}
-          </p>
-        </div>
-
-        {/* Flavor Text */}
-        <div className="relative z-10 pt-1.5 border-t border-slate-100">
-          <p className="text-[11px] italic text-slate-500 leading-tight">
-            "{card.flavor}"
-          </p>
-        </div>
-
-        {/* Card Footer: Game Name & Serial */}
-        <div className="relative z-10 mt-2 flex items-center justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-1 border-t border-slate-200/50">
-          <span>COLONY COLLAPSE</span>
-          <span className="flex items-center gap-1 text-slate-600">
-            <ColorIconPair colors={card.colors} size={11} />
-            #{String(card.uniqueId).padStart(2, '0')}/{totalCards}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- TABLETOP SIMULATOR (TTS) CARD COMPONENT (Edge-to-edge 0 gap, full size, sharp square corners) ---
-const TTSCard = ({ card, totalCards = 36 }) => {
-  const isImmediate = card.type === 'Immediate';
-
-  return (
-    <div
-      className="relative w-[280px] h-[392px] bg-white flex flex-col justify-between overflow-hidden box-border border-b border-r border-slate-300"
-      style={{ borderColor: CARD_NEUTRAL_TRIM }}
-    >
-      {/* 1. TITLE BAR + ICON BAR (together 30% of card) */}
-      <CardTitleBar title={card.title} className="h-[46px] flex-shrink-0 px-3 text-lg" />
-      <CardIconBar
-        colors={card.colors}
-        iconSize={36}
-        className="h-[72px] flex-shrink-0 gap-4"
-        badgeClassName="w-[60px] h-[60px] border-[3px]"
-      />
-
-      {/* 2. CARD BODY AREA (72% light area) */}
-      <div className="relative flex-1 p-3.5 flex flex-col justify-between bg-[#FDFBF7] text-slate-900">
-        {/* Ability Type Indicator Bar */}
-        <div className="relative z-10 flex items-center gap-2.5 pb-2 border-b border-slate-200">
-          <span
-            className="flex items-center justify-center w-8 h-8 rounded-full text-white font-black shadow-sm flex-shrink-0"
-            style={{ backgroundColor: CARD_NEUTRAL_INK }}
-          >
-            {isImmediate ? <Zap className="w-4.5 h-4.5 fill-current" /> : <RotateCw className="w-4.5 h-4.5" />}
-          </span>
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
-            {isImmediate ? 'Immediate Action' : 'Ongoing Effect'}
-          </span>
-        </div>
-
-        {/* Ability Main Text Box */}
-        <div className="relative z-10 my-auto py-2.5 px-3 rounded-lg bg-white/90 border border-slate-300 shadow-xs">
-          <p className="text-xs sm:text-sm font-semibold text-slate-900 leading-relaxed">
-            {card.effect}
-          </p>
-        </div>
-
-        {/* Flavor Text */}
-        <div className="relative z-10 pt-2 border-t border-slate-200/80">
-          <p className="text-[11px] italic text-slate-600 leading-tight">
-            "{card.flavor}"
-          </p>
-        </div>
-
-        {/* Card Footer */}
-        <div className="relative z-10 mt-2 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-1 border-t border-slate-200/50">
-          <span>COLONY COLLAPSE</span>
-          <span className="flex items-center gap-1 text-slate-600">
-            <ColorIconPair colors={card.colors} size={11} />
-            #{String(card.uniqueId).padStart(2, '0')}/{totalCards}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // --- SCREENTOP.GG SHEET SIZING ---
 // Screentop.gg rejects images over 4096px on either side (see asset-kit's
