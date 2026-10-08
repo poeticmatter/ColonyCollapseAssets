@@ -378,54 +378,81 @@ const HubBeeEmblem = ({ cx, cy, scale = 1.5 }) => (
 );
 
 // District borders are drawn as narrow parks: a strip of grass, edged dark so
-// it reads against both chalk issue cells and the dark slots, flecked with
-// small patches of colour - flowerbeds seen from far above, not individual
-// flowers. Placement is fixed per segment (no randomness) so every render and
-// export comes out identical.
+// it reads against both chalk issue cells and the dark slots, scattered with
+// wildflower patches. Each patch is one colour of dots, packed tight at its
+// heart and thinning out toward its ragged edge.
 const PARK_EDGE_COLOR = '#12261A';
 const PARK_EDGE_WIDTH = 26;
 const PARK_GRASS_COLOR = '#3F7A3B';
 const PARK_GRASS_WIDTH = 21;
-const PARK_PATCH_POSITIONS = [
-  { along: 0.14, across: -4 },
-  { along: 0.32, across: 3 },
-  { along: 0.5, across: -2 },
-  { along: 0.68, across: 4 },
-  { along: 0.86, across: -3 }
-];
 const PARK_PATCH_COLORS = ['#FFF6E5', '#F4A9C8', '#FFD447', '#C7B4F0', '#F28C6B'];
-// A loose cluster of dots around the patch centre, varied by rotation so
-// neighbouring patches don't look stamped.
-const PARK_PATCH_DOTS = [
-  { x: 0, y: 0, r: 1.7 },
-  { x: 2.6, y: 1, r: 1.3 },
-  { x: -1.8, y: 2.1, r: 1.4 },
-  { x: -0.6, y: -2.4, r: 1.1 }
-];
+const PARK_PATCH_ANCHORS = [0.2, 0.5, 0.8]; // fraction of the way along a segment
+const PARK_PATCH_ANCHOR_JITTER = 0.07;
+const PARK_PATCH_ACROSS_JITTER = 2;
+const PARK_PATCH_HALF_LENGTH = { min: 9, max: 14 };
+const PARK_PATCH_HALF_WIDTH = 6;
+const PARK_PATCH_DOT_COUNT = { min: 12, max: 20 };
+const PARK_DOT_R = { heart: 1.35, rim: 0.7 };
+// Raising a uniform 0-1 draw to this power bunches dots toward the patch's
+// centre; 1 would spread them evenly by radius, higher clusters harder.
+const PARK_DOT_CLUSTERING = 1.8;
 
-const ParkPatch = ({ x, y, color, rotationDeg }) => (
-  <g transform={`translate(${x}, ${y}) rotate(${rotationDeg})`} fill={color}>
-    {PARK_PATCH_DOTS.map((dot, dotIdx) => (
-      <circle key={dotIdx} cx={dot.x} cy={dot.y} r={dot.r} />
-    ))}
-  </g>
-);
+// Mulberry32: a tiny seeded PRNG. Seeding it from the segment index keeps
+// the patches organic-looking while every render and export stays identical.
+const createSeededRandom = (seed) => {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed);
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+const randomBetween = (random, { min, max }) => min + random() * (max - min);
+
+// Dot offsets in the patch's own frame: x runs along the border, y across it.
+const buildPatchDots = (random) => {
+  const halfLength = randomBetween(random, PARK_PATCH_HALF_LENGTH);
+  const dotCount = Math.round(randomBetween(random, PARK_PATCH_DOT_COUNT));
+  return Array.from({ length: dotCount }, () => {
+    const radiusFraction = random() ** PARK_DOT_CLUSTERING;
+    const angle = random() * 2 * Math.PI;
+    return {
+      x: Math.cos(angle) * radiusFraction * halfLength,
+      y: Math.sin(angle) * radiusFraction * PARK_PATCH_HALF_WIDTH,
+      r: PARK_DOT_R.heart + (PARK_DOT_R.rim - PARK_DOT_R.heart) * radiusFraction
+    };
+  });
+};
 
 const patchesAlongSegment = ({ from, to }, segmentIdx) => {
+  const random = createSeededRandom(segmentIdx + 1);
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const length = Math.hypot(dx, dy);
   const normal = { x: -dy / length, y: dx / length };
-  return PARK_PATCH_POSITIONS.map(({ along, across }, patchIdx) => {
-    const variant = segmentIdx * PARK_PATCH_POSITIONS.length + patchIdx;
+  const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+  return PARK_PATCH_ANCHORS.map((anchor) => {
+    const along = anchor + (random() * 2 - 1) * PARK_PATCH_ANCHOR_JITTER;
+    const across = (random() * 2 - 1) * PARK_PATCH_ACROSS_JITTER;
     return {
       x: from.x + dx * along + normal.x * across,
       y: from.y + dy * along + normal.y * across,
-      color: PARK_PATCH_COLORS[(segmentIdx + patchIdx * 2) % PARK_PATCH_COLORS.length],
-      rotationDeg: (variant * 137) % 360
+      angleDeg,
+      color: PARK_PATCH_COLORS[Math.floor(random() * PARK_PATCH_COLORS.length)],
+      dots: buildPatchDots(random)
     };
   });
 };
+
+const ParkPatch = ({ x, y, angleDeg, color, dots }) => (
+  <g transform={`translate(${x}, ${y}) rotate(${angleDeg})`} fill={color}>
+    {dots.map((dot, dotIdx) => (
+      <circle key={dotIdx} cx={dot.x} cy={dot.y} r={dot.r} />
+    ))}
+  </g>
+);
 
 const ParkStrip = ({ borderSegments, stroke, strokeWidth }) => (
   <g strokeLinecap="round" stroke={stroke} strokeWidth={strokeWidth}>
