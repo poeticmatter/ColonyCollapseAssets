@@ -396,7 +396,10 @@ const PARK_PATCH_OVERLAP_SPACING = 0.9;
 const PARK_PATCH_STEP = Math.sqrt(
   (2 * PARK_PATCH_RADIUS * PARK_PATCH_OVERLAP_SPACING) ** 2 - PARK_GRASS_WIDTH ** 2
 );
-const PARK_PATCH_DOT_COUNT = 44; // before trimming the dots that fall off the grass
+const PARK_PATCH_DOT_COUNT = 90; // before trimming the dots that fall off the grass
+// The patch's heart is a solid disc of its colour. Its centre sits on the
+// grass edge, so only the half facing into the grass is drawn.
+const PARK_PATCH_CORE_R = 2.5;
 const PARK_DOT_R = { heart: 1.4, rim: 0.7 };
 // Raising a uniform 0-1 draw to this power bunches dots toward the patch's
 // centre; 1 would spread them evenly by radius, higher clusters harder.
@@ -447,10 +450,21 @@ const patchesAlongSegment = ({ from, to }, segmentIdx) => {
     previousColorIdx = colorIdx;
     const center = { x: firstPatchX + patchIdx * PARK_PATCH_STEP, y: side * PARK_GRASS_HALF_WIDTH };
     return {
+      center,
+      side,
       color: PARK_PATCH_COLORS[colorIdx],
       dots: buildPatchDots(random, center, segmentLength)
     };
   });
+};
+
+// Half disc bulging from the grass edge toward the strip's centre line. In
+// SVG's y-down frame, sweep 1 arcs through -y and sweep 0 through +y.
+const patchCoreHalfDiscPath = (center, side) => {
+  const sweepFlag = side > 0 ? 1 : 0;
+  const left = center.x - PARK_PATCH_CORE_R;
+  const right = center.x + PARK_PATCH_CORE_R;
+  return `M ${left} ${center.y} A ${PARK_PATCH_CORE_R} ${PARK_PATCH_CORE_R} 0 0 ${sweepFlag} ${right} ${center.y} Z`;
 };
 
 const SegmentWildflowers = ({ segment, segmentIdx }) => {
@@ -460,6 +474,7 @@ const SegmentWildflowers = ({ segment, segmentIdx }) => {
     <g transform={`translate(${from.x}, ${from.y}) rotate(${angleDeg})`}>
       {patchesAlongSegment(segment, segmentIdx).map((patch, patchIdx) => (
         <g key={patchIdx} fill={patch.color}>
+          <path d={patchCoreHalfDiscPath(patch.center, patch.side)} />
           {patch.dots.map((dot, dotIdx) => (
             <circle key={dotIdx} cx={dot.x} cy={dot.y} r={dot.r} />
           ))}
@@ -624,17 +639,27 @@ const BoardSVG = ({
 );
 
 // --- 6B. DISPLAY BOARD & DIAL -----------------------------------------
-// The 6-hex tile display: six empty hex slots in a ring, six color badges
-// pointing to the matching districts, and a single central circular dial
-// with a rotating dial token that points to the active slot.
+// The 6-hex tile display: a central circular dial with a rotating dial token,
+// six empty hex slots ringed tightly around it, and six color badges outside
+// the hexes pointing to the matching districts.
 // Same radius as a board cell, since an actual hex tile has to sit in both.
 const DISPLAY_HEX_R = BOARD_CELL_R;
-const DISPLAY_RING_R = 300;
-const DISPLAY_BADGE_RING_R = 130;
+const DISPLAY_HEX_APOTHEM = (DISPLAY_HEX_R * Math.sqrt(3)) / 2;
+const DISPLAY_HEX_GAP = 12;
+// Neighbouring slots 60° apart sit flat side to flat side, so the ring
+// radius equals the centre-to-centre distance: two apothems plus the gap.
+const DISPLAY_RING_R = 2 * DISPLAY_HEX_APOTHEM + DISPLAY_HEX_GAP;
 const DISPLAY_BADGE_R = 40;
+const DISPLAY_BADGE_GAP = 20;
+// Each slot faces outward with a flat side, so the badge clears it by the apothem.
+const DISPLAY_BADGE_RING_R = DISPLAY_RING_R + DISPLAY_HEX_APOTHEM + DISPLAY_BADGE_GAP + DISPLAY_BADGE_R;
 const DISPLAY_DIAL_R = 75;
 const DISPLAY_MARGIN = 30;
-const DISPLAY_BOARD_SIZE = (DISPLAY_RING_R + DISPLAY_HEX_R + DISPLAY_MARGIN) * 2;
+const DISPLAY_BOARD_SIZE = (DISPLAY_BADGE_RING_R + DISPLAY_BADGE_R + DISPLAY_MARGIN) * 2;
+const DISPLAY_BADGE_MARK_SIZE = 17;
+// The board's pip offsets, opened up a little so the wider question marks
+// don't crowd each other.
+const DISPLAY_BADGE_MARK_SPREAD = 1.25;
 const DISPLAY_BOARD_CENTER = { x: DISPLAY_BOARD_SIZE / 2, y: DISPLAY_BOARD_SIZE / 2 };
 
 // Turns the whole ring 30° clockwise from straight-up so each slot lines up
@@ -691,8 +716,8 @@ export const DisplayBoardSVG = ({
             key={`dial-ray-${pos.color}`}
             x1={DISPLAY_DIAL_R * Math.cos(rad)}
             y1={DISPLAY_DIAL_R * Math.sin(rad)}
-            x2={(DISPLAY_BADGE_RING_R - DISPLAY_BADGE_R - 6) * Math.cos(rad)}
-            y2={(DISPLAY_BADGE_RING_R - DISPLAY_BADGE_R - 6) * Math.sin(rad)}
+            x2={(DISPLAY_RING_R - DISPLAY_HEX_APOTHEM - 4) * Math.cos(rad)}
+            y2={(DISPLAY_RING_R - DISPLAY_HEX_APOTHEM - 4) * Math.sin(rad)}
             stroke="#334155"
             strokeWidth="2.5"
             strokeDasharray="4 4"
@@ -744,23 +769,7 @@ export const DisplayBoardSVG = ({
         <circle cx={0} cy={0} r={4.5} fill="#94A3B8" />
       </g>
 
-      {/* 3. The 6 color badges */}
-      {DISPLAY_POSITIONS.map((pos) => {
-        const fillHex = CC_COLOR_HEX[pos.color];
-        const deepHex = CC_COLOR_DEEP_HEX[pos.color];
-        const inkHex = CC_COLOR_INK[pos.color];
-        const iconSize = DISPLAY_BADGE_R * 0.85;
-        return (
-          <g key={`badge-${pos.color}`}>
-            <circle cx={pos.badge.x} cy={pos.badge.y} r={DISPLAY_BADGE_R} fill={fillHex} stroke={deepHex} strokeWidth="3.5" />
-            <g transform={`translate(${pos.badge.x - iconSize / 2}, ${pos.badge.y - iconSize / 2})`}>
-              <IssueSymbol color={pos.color} size={iconSize} strokeWidth={2.2} colorHex={inkHex} />
-            </g>
-          </g>
-        );
-      })}
-
-      {/* 4. The 6 hex tile slots */}
+      {/* 3. The 6 hex tile slots */}
       {DISPLAY_POSITIONS.map((pos) => (
         <g key={`slot-${pos.color}`}>
           <polygon points={hexPointsAt(pos.hex.x, pos.hex.y, DISPLAY_HEX_R)} fill="#151E2E" stroke="#334155" strokeWidth="4" />
@@ -771,6 +780,36 @@ export const DisplayBoardSVG = ({
             strokeWidth="2.5"
             strokeDasharray="10 9"
           />
+        </g>
+      ))}
+
+      {/* 4. The 6 color badges: five question marks in the dice "5" layout,
+          the same pip arrangement as the board's round badges. */}
+      {DISPLAY_POSITIONS.map((pos) => (
+        <g key={`badge-${pos.color}`}>
+          <circle
+            cx={pos.badge.x}
+            cy={pos.badge.y}
+            r={DISPLAY_BADGE_R}
+            fill={CC_COLOR_HEX[pos.color]}
+            stroke={CC_COLOR_DEEP_HEX[pos.color]}
+            strokeWidth="3.5"
+          />
+          {ROUND_PIP_LAYOUTS[ROUND_PIP_LAYOUTS.length - 1].map(([dx, dy], markIdx) => (
+            <text
+              key={markIdx}
+              x={pos.badge.x + dx * DISPLAY_BADGE_MARK_SPREAD}
+              y={pos.badge.y + dy * DISPLAY_BADGE_MARK_SPREAD}
+              textAnchor="middle"
+              dominantBaseline="central"
+              fontFamily="system-ui, sans-serif"
+              fontSize={DISPLAY_BADGE_MARK_SIZE}
+              fontWeight="900"
+              fill={CC_COLOR_INK[pos.color]}
+            >
+              ?
+            </text>
+          ))}
         </g>
       ))}
 
