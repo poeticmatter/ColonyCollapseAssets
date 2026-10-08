@@ -308,45 +308,6 @@ const csvRowsToTemplates = (rows) => {
 
 // --- CUSTOM SVG VECTOR ARTWORK COMPONENTS ---
 
-// Bee Democracy Emblem SVG
-const BeeDemocracyEmblemSVG = ({ colorHex = '#EAB308', size = 80 }) => (
-  <svg viewBox="0 0 120 120" width={size} height={size} className="drop-shadow-sm">
-    <defs>
-      <radialGradient id="emblem-glow" cx="50%" cy="50%" r="50%">
-        <stop offset="0%" stopColor={colorHex} stopOpacity="0.3" />
-        <stop offset="100%" stopColor={colorHex} stopOpacity="0" />
-      </radialGradient>
-      <linearGradient id="wing-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.8" />
-        <stop offset="100%" stopColor="#E2E8F0" stopOpacity="0.4" />
-      </linearGradient>
-    </defs>
-
-    {/* Background Hexagon Shield */}
-    <polygon points="60,8 105,34 105,86 60,112 15,86 15,34" fill="url(#emblem-glow)" stroke={colorHex} strokeWidth="1.5" strokeDasharray="4 2" />
-
-    {/* Wings */}
-    <path d="M 60 48 Q 25 20 18 42 Q 35 55 60 52 Z" fill="url(#wing-grad)" stroke="#94A3B8" strokeWidth="1" />
-    <path d="M 60 48 Q 95 20 102 42 Q 85 55 60 52 Z" fill="url(#wing-grad)" stroke="#94A3B8" strokeWidth="1" />
-
-    {/* Bee Body */}
-    <ellipse cx="60" cy="62" rx="18" ry="24" fill="#F59E0B" stroke="#78350F" strokeWidth="1.5" />
-    {/* Body Stripes */}
-    <path d="M 44 54 Q 60 50 76 54" stroke="#1E293B" strokeWidth="3.5" strokeLinecap="round" />
-    <path d="M 43 62 Q 60 58 77 62" stroke="#1E293B" strokeWidth="3.5" strokeLinecap="round" />
-    <path d="M 45 70 Q 60 66 75 70" stroke="#1E293B" strokeWidth="3.5" strokeLinecap="round" />
-
-    {/* Bee Head */}
-    <circle cx="60" cy="38" r="10" fill="#1E293B" />
-    {/* Crown / Democratic Laurel */}
-    <path d="M 52 32 L 56 24 L 60 30 L 64 24 L 68 32 Z" fill="#F59E0B" stroke="#78350F" strokeWidth="0.8" />
-    <circle cx="60" cy="27" r="1.5" fill="#EF4444" />
-
-    {/* Ballot Box Star underneath */}
-    <path d="M 60 84 L 63 90 L 70 91 L 65 95 L 66 102 L 60 98 L 54 102 L 55 95 L 50 91 L 57 90 Z" fill="#F59E0B" />
-  </svg>
-);
-
 // Card Back Graphic SVG
 const CardBackGraphicSVG = () => (
   <svg viewBox="0 0 200 300" className="w-full h-full">
@@ -382,14 +343,15 @@ const CardBackGraphicSVG = () => (
 );
 
 // --- CARD COLOR PAIR PIECES ---
-// A card belongs equally to both of its colors, so nothing on it favors one:
-// every banner is the same plain slate, and the two colors live only in the
-// pair of issue badges at its top left. Slate rather than a light tone, so
-// even the palest chalk color (Stone) stands out clearly as a badge.
+// A card belongs equally to both of its colors, so nothing on it favors one.
+// The top of the card is two separate bars: a plain slate title bar that is
+// identical on every card, and below it a light icon bar holding the two
+// issue badges side by side at equal size.
 const CARD_NEUTRAL_INK = '#1F2937';
 const CARD_NEUTRAL_TRIM = '#475569';
 const CARD_BANNER_COLOR = '#1E293B';
 const CARD_BANNER_TITLE_COLOR = '#F8F4EA';
+const CARD_ICON_BAR_COLOR = '#E9E3D5';
 
 const ColorBadge = ({ color, iconSize, className }) => (
   <span
@@ -400,8 +362,21 @@ const ColorBadge = ({ color, iconSize, className }) => (
   </span>
 );
 
-const ColorBadgePair = ({ colors, iconSize, badgeClassName }) => (
-  <div className="self-start flex-shrink-0 flex items-center gap-1">
+const CardTitleBar = ({ title, className }) => (
+  <div
+    className={`w-full flex items-center justify-center text-center font-black tracking-tight leading-tight ${className}`}
+    style={{ background: CARD_BANNER_COLOR, color: CARD_BANNER_TITLE_COLOR }}
+  >
+    <h3>{title}</h3>
+  </div>
+);
+
+// Issue glyphs: the color-blind readable half of the card's identity.
+const CardIconBar = ({ colors, iconSize, className, badgeClassName }) => (
+  <div
+    className={`w-full flex items-center justify-center border-b-2 ${className}`}
+    style={{ background: CARD_ICON_BAR_COLOR, borderBottomColor: CARD_NEUTRAL_TRIM }}
+  >
     {colors.map((color) => (
       <ColorBadge key={color} color={color} iconSize={iconSize} className={badgeClassName} />
     ))}
@@ -426,27 +401,17 @@ const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
       className="group relative w-full aspect-[2.5/3.5] rounded-xl overflow-hidden shadow-lg border-2 bg-white flex flex-col justify-between transition-all duration-200 hover:shadow-2xl hover:-translate-y-1 cursor-pointer select-none"
       style={{ borderColor: CARD_NEUTRAL_TRIM }}
     >
-      {/* 1. TOP COLOR BANNER (Occupies approx 28% of card) */}
-      <div
-        className="relative h-[28%] w-full p-2 flex flex-row items-start gap-1.5 overflow-hidden text-center"
-        style={{ background: CARD_BANNER_COLOR, color: CARD_BANNER_TITLE_COLOR }}
-      >
-        {/* Issue glyphs: the color-blind readable half of the card's identity */}
-        <ColorBadgePair colors={card.colors} iconSize={24} badgeClassName="w-11 h-11 border-[3px]" />
-
-        {/* Card Title */}
-        <h3 className="flex-1 self-stretch flex items-center justify-center text-base sm:text-lg font-black tracking-tight leading-tight px-1">
-          {card.title}
-        </h3>
-      </div>
+      {/* 1. TITLE BAR + ICON BAR (together approx 30% of card) */}
+      <CardTitleBar title={card.title} className="h-[12%] flex-shrink-0 px-2 text-base sm:text-lg" />
+      <CardIconBar
+        colors={card.colors}
+        iconSize="60%"
+        className="h-[18%] flex-shrink-0 gap-3"
+        badgeClassName="h-[84%] aspect-square border-[3px]"
+      />
 
       {/* 2. CARD BODY AREA (Occupies approx 72% light readable area) */}
       <div className="relative flex-1 p-3 flex flex-col justify-between bg-[#FDFBF7] text-slate-900">
-        {/* Subtle Watermark Illustration in Background */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] pointer-events-none">
-          <BeeDemocracyEmblemSVG colorHex={CARD_NEUTRAL_TRIM} size={150} />
-        </div>
-
         {/* Ability Type Indicator Bar */}
         <div className="relative z-10 flex items-center gap-2 pb-1.5 border-b border-slate-200">
           <span
@@ -496,27 +461,17 @@ const TTSCard = ({ card, totalCards = 36 }) => {
       className="relative w-[280px] h-[392px] bg-white flex flex-col justify-between overflow-hidden box-border border-b border-r border-slate-300"
       style={{ borderColor: CARD_NEUTRAL_TRIM }}
     >
-      {/* 1. TOP COLOR BANNER (28% of card) */}
-      <div
-        className="relative h-[28%] w-full p-2.5 flex flex-row items-start gap-2 overflow-hidden text-center"
-        style={{ background: CARD_BANNER_COLOR, color: CARD_BANNER_TITLE_COLOR }}
-      >
-        {/* Issue glyphs: the color-blind readable half of the card's identity */}
-        <ColorBadgePair colors={card.colors} iconSize={28} badgeClassName="w-[52px] h-[52px] border-[3px]" />
-
-        {/* Card Title */}
-        <h3 className="flex-1 self-stretch flex items-center justify-center text-lg font-black tracking-tight leading-tight px-1">
-          {card.title}
-        </h3>
-      </div>
+      {/* 1. TITLE BAR + ICON BAR (together 30% of card) */}
+      <CardTitleBar title={card.title} className="h-[46px] flex-shrink-0 px-3 text-lg" />
+      <CardIconBar
+        colors={card.colors}
+        iconSize={36}
+        className="h-[72px] flex-shrink-0 gap-4"
+        badgeClassName="w-[60px] h-[60px] border-[3px]"
+      />
 
       {/* 2. CARD BODY AREA (72% light area) */}
       <div className="relative flex-1 p-3.5 flex flex-col justify-between bg-[#FDFBF7] text-slate-900">
-        {/* Watermark Illustration */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] pointer-events-none">
-          <BeeDemocracyEmblemSVG colorHex={CARD_NEUTRAL_TRIM} size={180} />
-        </div>
-
         {/* Ability Type Indicator Bar */}
         <div className="relative z-10 flex items-center gap-2.5 pb-2 border-b border-slate-200">
           <span
