@@ -5,7 +5,6 @@ import { exportForTTS, exportForScreentop, buildAssetFilename } from 'asset-kit'
 import {
   CC_COLOR_HEX,
   CC_COLOR_DEEP_HEX,
-  CC_COLOR_MID_HEX,
   CC_COLOR_INK,
   CC_COLOR_ORDER,
   CC_COLOR_TAGLINE
@@ -24,20 +23,22 @@ const COLOR_SCHEMES = Object.fromEntries(
       hexCode: CC_COLOR_HEX[name],
       darkHex: CC_COLOR_DEEP_HEX[name],
       inkHex: CC_COLOR_INK[name],
-      bannerGradient: `linear-gradient(135deg, ${CC_COLOR_HEX[name]} 0%, ${CC_COLOR_MID_HEX[name]} 100%)`,
       tagline: CC_COLOR_TAGLINE[name]
     }
   ])
 );
 
-// 18 Ability Templates
+// 18 Ability Templates. Every card carries two issue colors, and each
+// ability's two copies use different pairs that together cover four distinct
+// colors. Across the deck every color appears on exactly 12 cards and every
+// one of the 15 possible pairs shows up 2-3 times.
 const CARD_TEMPLATES = [
   {
     id: 1,
     title: "Comb Overturn",
     type: "Immediate",
     effect: "Flip any number of tiles in the display.",
-    colors: ["Clay", "Sage"],
+    colorPairs: [["Clay", "Sage"], ["Periwinkle", "Seafoam"]],
     flavor: "A coordinated push through the trading comb turns every open cell face up."
   },
   {
@@ -45,7 +46,7 @@ const CARD_TEMPLATES = [
     title: "Long Flight",
     type: "Immediate",
     effect: "Move your player pawn to any space on the board then rally one adjacent tile.",
-    colors: ["Clay", "Seafoam"],
+    colorPairs: [["Clay", "Seafoam"], ["Sage", "Periwinkle"]],
     flavor: "Scouts range far beyond the usual foraging paths to stake a distant claim."
   },
   {
@@ -53,7 +54,7 @@ const CARD_TEMPLATES = [
     title: "Dissident Rally",
     type: "Immediate",
     effect: "Rally a tile, even if you aren't leading the issue.",
-    colors: ["Clay", "Mauve"],
+    colorPairs: [["Clay", "Mauve"], ["Sage", "Stone"]],
     flavor: "Even the back benches can summon support when the moment calls for it."
   },
   {
@@ -61,7 +62,7 @@ const CARD_TEMPLATES = [
     title: "Speaker's Favor",
     type: "Immediate",
     effect: "Give the first player marker to a player of your choice.",
-    colors: ["Clay", "Periwinkle"],
+    colorPairs: [["Clay", "Periwinkle"], ["Sage", "Seafoam"]],
     flavor: "A well-placed favor buys more influence than the gavel itself."
   },
   {
@@ -69,7 +70,7 @@ const CARD_TEMPLATES = [
     title: "Ward Sweep",
     type: "Immediate",
     effect: "Rally all tiles in a district.",
-    colors: ["Clay", "Stone"],
+    colorPairs: [["Clay", "Stone"], ["Sage", "Mauve"]],
     flavor: "One motion carries the whole district, cell by cell, all at once."
   },
   {
@@ -77,7 +78,7 @@ const CARD_TEMPLATES = [
     title: "Blueprint Revision",
     type: "Immediate",
     effect: "Upgrade one of your action tiles.",
-    colors: ["Clay", "Sage"],
+    colorPairs: [["Clay", "Sage"], ["Periwinkle", "Mauve"]],
     flavor: "Revised plans catch on fast among colonies eager for an edge."
   },
   {
@@ -85,7 +86,7 @@ const CARD_TEMPLATES = [
     title: "Reserve Deployment",
     type: "Immediate",
     effect: "Use a set aside action tile at strength 3.",
-    colors: ["Sage", "Seafoam"],
+    colorPairs: [["Sage", "Seafoam"], ["Clay", "Periwinkle"]],
     flavor: "What was shelved for later proves useful sooner than expected."
   },
   {
@@ -93,7 +94,7 @@ const CARD_TEMPLATES = [
     title: "Market Reshuffle",
     type: "Immediate",
     effect: "Rearrange all the tiles in the display.",
-    colors: ["Sage", "Mauve"],
+    colorPairs: [["Sage", "Mauve"], ["Clay", "Stone"]],
     flavor: "A brisk reordering of the trading comb catches every rival off guard."
   },
   {
@@ -101,7 +102,7 @@ const CARD_TEMPLATES = [
     title: "Supply Refresh",
     type: "Immediate",
     effect: "Replace any number of tiles in the display with tiles from the bag.",
-    colors: ["Sage", "Periwinkle"],
+    colorPairs: [["Sage", "Periwinkle"], ["Clay", "Seafoam"]],
     flavor: "Stale offerings are swept aside for whatever the reserve bag yields next."
   },
   {
@@ -109,7 +110,7 @@ const CARD_TEMPLATES = [
     title: "Deferred Gavel",
     type: "Ongoing",
     effect: "You may pass the first player token if you have it.",
-    colors: ["Sage", "Stone"],
+    colorPairs: [["Sage", "Stone"], ["Clay", "Mauve"]],
     flavor: "Leading first isn't always leading best; some delegates prefer to watch and wait."
   },
   {
@@ -117,7 +118,7 @@ const CARD_TEMPLATES = [
     title: "Echoing Decree",
     type: "Ongoing",
     effect: "When you play a card with an Immediate effect, resolve it again, then discard this card.",
-    colors: ["Seafoam", "Mauve"],
+    colorPairs: [["Seafoam", "Mauve"], ["Clay", "Stone"]],
     flavor: "A powerful proclamation reverberates throughout the entire hive structure."
   },
   {
@@ -125,7 +126,7 @@ const CARD_TEMPLATES = [
     title: "Cross-Party Address",
     type: "Ongoing",
     effect: "ADDRESS: You may play a card matching the tile's color instead of advancing on an issue.",
-    colors: ["Seafoam", "Periwinkle"],
+    colorPairs: [["Seafoam", "Periwinkle"], ["Stone", "Mauve"]],
     flavor: "Shared colors make for unlikely allies at the podium."
   },
   {
@@ -133,7 +134,7 @@ const CARD_TEMPLATES = [
     title: "Site Prep",
     type: "Ongoing",
     effect: "DEVELOP: You may also place a tile before turning the dial.",
-    colors: ["Seafoam", "Stone"],
+    colorPairs: [["Seafoam", "Stone"], ["Clay", "Sage"]],
     flavor: "Groundwork laid ahead of schedule keeps the dial turning smoothly."
   },
   {
@@ -141,7 +142,7 @@ const CARD_TEMPLATES = [
     title: "Policy Trade",
     type: "Ongoing",
     effect: "LEVERAGE: You may advance on an issue of the card's color instead of gaining the card's effect.",
-    colors: ["Seafoam", "Mauve"],
+    colorPairs: [["Seafoam", "Mauve"], ["Periwinkle", "Stone"]],
     flavor: "Some delegates cash in favors for votes instead of votes for favors."
   },
   {
@@ -149,7 +150,7 @@ const CARD_TEMPLATES = [
     title: "Waggle Sweep",
     type: "Ongoing",
     effect: "DANCE: You may instead rally all tiles in a district adjacent to your pawn.",
-    colors: ["Mauve", "Periwinkle"],
+    colorPairs: [["Mauve", "Periwinkle"], ["Stone", "Seafoam"]],
     flavor: "A well-danced signal draws support from the neighboring wards."
   },
   {
@@ -157,7 +158,7 @@ const CARD_TEMPLATES = [
     title: "Extra Hands",
     type: "Ongoing",
     effect: "INTERN: N = 2.",
-    colors: ["Mauve", "Stone"],
+    colorPairs: [["Mauve", "Stone"], ["Periwinkle", "Seafoam"]],
     flavor: "Two apprentices accomplish what one alone could not."
   },
   {
@@ -165,7 +166,7 @@ const CARD_TEMPLATES = [
     title: "Press Cycle",
     type: "Ongoing",
     effect: "MEDIA: You may instead replace a tile with a tile from the bag.",
-    colors: ["Periwinkle", "Stone"],
+    colorPairs: [["Periwinkle", "Stone"], ["Sage", "Mauve"]],
     flavor: "A fresh headline is worth more than yesterday's stock."
   },
   {
@@ -173,51 +174,34 @@ const CARD_TEMPLATES = [
     title: "Swift Withdrawal",
     type: "Ongoing",
     effect: "When another player rallies a tile you control, remove your token before they do.",
-    colors: ["Periwinkle", "Stone"],
+    colorPairs: [["Periwinkle", "Stone"], ["Seafoam", "Mauve"]],
     flavor: "Wise delegates know when to retreat before the vote turns against them."
   }
 ];
 
+const COPY_LABELS = ['Copy A', 'Copy B'];
+
 // Generate the full deck from a list of ability templates: each template
-// becomes 2 cards (one per color in its `colors` pair).
-const generateDeck = (templates) => {
-  const deck = [];
-  let cardIdCounter = 1;
-
-  templates.forEach((tpl) => {
-    // Copy 1 (Color A)
-    deck.push({
-      uniqueId: cardIdCounter++,
+// becomes 2 cards, one per color pair in its `colorPairs`.
+const generateDeck = (templates) =>
+  templates.flatMap((tpl, templateIdx) =>
+    tpl.colorPairs.map((colors, copyIdx) => ({
+      uniqueId: templateIdx * COPY_LABELS.length + copyIdx + 1,
       templateId: tpl.id,
       title: tpl.title,
       type: tpl.type,
       effect: tpl.effect,
-      color: tpl.colors[0],
-      altColor: tpl.colors[1],
-      copyLabel: 'Copy A',
+      colors,
+      copyLabel: COPY_LABELS[copyIdx],
       flavor: tpl.flavor
-    });
-
-    // Copy 2 (Color B)
-    deck.push({
-      uniqueId: cardIdCounter++,
-      templateId: tpl.id,
-      title: tpl.title,
-      type: tpl.type,
-      effect: tpl.effect,
-      color: tpl.colors[1],
-      altColor: tpl.colors[0],
-      copyLabel: 'Copy B',
-      flavor: tpl.flavor
-    });
-  });
-
-  return deck;
-};
+    }))
+  );
 
 // --- CSV EXPORT / IMPORT FOR CARD ABILITY TEMPLATES ---
-const CSV_COLUMNS = ['id', 'title', 'type', 'effect', 'colorA', 'colorB', 'flavor'];
-const REQUIRED_CSV_COLUMNS = ['title', 'type', 'effect', 'colora', 'colorb', 'flavor'];
+// One column per color slot: copy A's pair, then copy B's pair.
+const CSV_COLOR_COLUMNS = ['copyAColor1', 'copyAColor2', 'copyBColor1', 'copyBColor2'];
+const CSV_COLUMNS = ['id', 'title', 'type', 'effect', ...CSV_COLOR_COLUMNS, 'flavor'];
+const REQUIRED_CSV_COLUMNS = ['title', 'type', 'effect', ...CSV_COLOR_COLUMNS, 'flavor'].map((col) => col.toLowerCase());
 
 const escapeCSVField = (value) => {
   const str = String(value ?? '');
@@ -225,7 +209,7 @@ const escapeCSVField = (value) => {
 };
 
 const templatesToCSV = (templates) => {
-  const rows = templates.map((tpl) => [tpl.id, tpl.title, tpl.type, tpl.effect, tpl.colors[0], tpl.colors[1], tpl.flavor]);
+  const rows = templates.map((tpl) => [tpl.id, tpl.title, tpl.type, tpl.effect, ...tpl.colorPairs.flat(), tpl.flavor]);
   return [CSV_COLUMNS, ...rows].map((row) => row.map(escapeCSVField).join(',')).join('\r\n');
 };
 
@@ -290,8 +274,7 @@ const csvRowsToTemplates = (rows) => {
     const title = readCell(row, 'title');
     const type = readCell(row, 'type');
     const effect = readCell(row, 'effect');
-    const colorA = readCell(row, 'colora');
-    const colorB = readCell(row, 'colorb');
+    const colorSlots = CSV_COLOR_COLUMNS.map((col) => readCell(row, col.toLowerCase()));
     const flavor = readCell(row, 'flavor');
     const idRaw = colIndex.id !== undefined ? readCell(row, 'id') : '';
 
@@ -300,20 +283,26 @@ const csvRowsToTemplates = (rows) => {
       throw new Error(`Row ${lineNumber}: "type" must be "Immediate" or "Ongoing", got "${type}".`);
     }
     if (!effect) throw new Error(`Row ${lineNumber}: "effect" is required.`);
-    if (!CC_COLOR_ORDER.includes(colorA)) {
-      throw new Error(`Row ${lineNumber}: "colorA" must be one of ${CC_COLOR_ORDER.join(', ')} (got "${colorA}").`);
-    }
-    if (!CC_COLOR_ORDER.includes(colorB)) {
-      throw new Error(`Row ${lineNumber}: "colorB" must be one of ${CC_COLOR_ORDER.join(', ')} (got "${colorB}").`);
-    }
-    if (colorA === colorB) {
-      throw new Error(`Row ${lineNumber}: "colorA" and "colorB" must be different.`);
+    CSV_COLOR_COLUMNS.forEach((col, slotIdx) => {
+      if (!CC_COLOR_ORDER.includes(colorSlots[slotIdx])) {
+        throw new Error(`Row ${lineNumber}: "${col}" must be one of ${CC_COLOR_ORDER.join(', ')} (got "${colorSlots[slotIdx]}").`);
+      }
+    });
+    const colorPairs = [colorSlots.slice(0, 2), colorSlots.slice(2, 4)];
+    colorPairs.forEach(([first, second], copyIdx) => {
+      if (first === second) {
+        throw new Error(`Row ${lineNumber}: ${COPY_LABELS[copyIdx]} needs two different colors, got "${first}" twice.`);
+      }
+    });
+    const [pairA, pairB] = colorPairs;
+    if (pairA.every((color) => pairB.includes(color))) {
+      throw new Error(`Row ${lineNumber}: Copy A and Copy B must use different color pairs.`);
     }
 
     const parsedId = Number(idRaw);
     const id = idRaw && !Number.isNaN(parsedId) ? parsedId : rowIdx + 1;
 
-    return { id, title, type, effect, colors: [colorA, colorB], flavor };
+    return { id, title, type, effect, colorPairs, flavor };
   });
 };
 
@@ -392,51 +381,77 @@ const CardBackGraphicSVG = () => (
   </svg>
 );
 
+// --- CARD COLOR PAIR PIECES ---
+// A card belongs equally to both of its colors, so nothing on it favors one:
+// the banner splits evenly down the middle, each half gets its own issue
+// badge, and the trim, type bubble and watermark all stay neutral.
+const CARD_NEUTRAL_INK = '#1F2937';
+const CARD_NEUTRAL_TRIM = '#475569';
+
+const splitBannerBackground = ([first, second]) =>
+  `linear-gradient(90deg, ${CC_COLOR_HEX[first]} 0%, ${CC_COLOR_HEX[first]} 38%, ${CC_COLOR_HEX[second]} 62%, ${CC_COLOR_HEX[second]} 100%)`;
+
+const splitTrimBackground = ([first, second]) =>
+  `linear-gradient(90deg, ${CC_COLOR_DEEP_HEX[first]} 50%, ${CC_COLOR_DEEP_HEX[second]} 50%)`;
+
+// Filled in its own color, so each badge still reads as that color even
+// where the banner blends into its neighbor.
+const ColorBadge = ({ color, iconSize, className }) => (
+  <span
+    className={`absolute z-10 flex items-center justify-center rounded-full border-2 ${className}`}
+    style={{ backgroundColor: CC_COLOR_HEX[color], borderColor: CC_COLOR_DEEP_HEX[color] }}
+  >
+    <IssueSymbol color={color} size={iconSize} strokeWidth={2.6} />
+  </span>
+);
+
+const ColorIconPair = ({ colors, size }) => (
+  <span className="flex items-center gap-0.5">
+    {colors.map((color) => (
+      <IssueSymbol key={color} color={color} size={size} strokeWidth={2.6} />
+    ))}
+  </span>
+);
+
 // --- MAIN SINGLE CARD RENDER COMPONENT ---
 const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
-  const scheme = COLOR_SCHEMES[card.color] || COLOR_SCHEMES.Clay;
+  const [leftColor, rightColor] = card.colors;
   const isImmediate = card.type === 'Immediate';
 
   return (
     <div
       onClick={() => onSelectCard && onSelectCard(card)}
       className="group relative w-full aspect-[2.5/3.5] rounded-xl overflow-hidden shadow-lg border-2 bg-white flex flex-col justify-between transition-all duration-200 hover:shadow-2xl hover:-translate-y-1 cursor-pointer select-none"
-      style={{ borderColor: scheme.darkHex }}
+      style={{ borderColor: CARD_NEUTRAL_TRIM }}
     >
       {/* 1. TOP COLOR BANNER (Occupies approx 28% of card) */}
       <div
         className="relative h-[28%] w-full px-3 py-2.5 flex items-center justify-center overflow-hidden text-center"
-        style={{ background: scheme.bannerGradient, color: scheme.inkHex }}
+        style={{ background: splitBannerBackground(card.colors), color: CARD_NEUTRAL_INK }}
       >
-        {/* Issue glyph: the color-blind readable half of the card's identity */}
-        <span
-          className="absolute top-1.5 left-1.5 z-10 flex items-center justify-center rounded-full w-5 h-5"
-          style={{ background: 'rgba(255,255,255,0.6)' }}
-        >
-          <IssueSymbol color={card.color} size={13} strokeWidth={2.6} colorHex={scheme.inkHex} />
-        </span>
+        {/* Issue glyphs: the color-blind readable half of the card's identity */}
+        <ColorBadge color={leftColor} iconSize={14} className="top-1.5 left-1.5 w-7 h-7" />
+        <ColorBadge color={rightColor} iconSize={14} className="top-1.5 right-1.5 w-7 h-7" />
 
         {/* Card Title */}
-        <h3 className="relative z-10 text-base sm:text-lg font-black tracking-tight leading-tight my-auto px-5">
+        <h3 className="relative z-10 text-base sm:text-lg font-black tracking-tight leading-tight my-auto px-7">
           {card.title}
         </h3>
       </div>
+      <div className="h-[2px] w-full flex-shrink-0" style={{ background: splitTrimBackground(card.colors) }} />
 
       {/* 2. CARD BODY AREA (Occupies approx 72% light readable area) */}
-      <div
-        className="relative flex-1 p-3 flex flex-col justify-between bg-[#FDFBF7] text-slate-900 border-t"
-        style={{ borderTopColor: scheme.darkHex }}
-      >
+      <div className="relative flex-1 p-3 flex flex-col justify-between bg-[#FDFBF7] text-slate-900">
         {/* Subtle Watermark Illustration in Background */}
         <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] pointer-events-none">
-          <BeeDemocracyEmblemSVG colorHex={scheme.darkHex} size={150} />
+          <BeeDemocracyEmblemSVG colorHex={CARD_NEUTRAL_TRIM} size={150} />
         </div>
 
-        {/* Ability Type Indicator Bar (Large Icon in Card Color) */}
+        {/* Ability Type Indicator Bar */}
         <div className="relative z-10 flex items-center gap-2 pb-1.5 border-b border-slate-200">
           <span
             className="flex items-center justify-center w-7 h-7 rounded-full text-white font-black shadow-md flex-shrink-0"
-            style={{ backgroundColor: scheme.inkHex }}
+            style={{ backgroundColor: CARD_NEUTRAL_INK }}
           >
             {isImmediate ? <Zap className="w-4 h-4 fill-current" /> : <RotateCw className="w-4 h-4" />}
           </span>
@@ -462,8 +477,8 @@ const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
         {/* Card Footer: Game Name & Serial */}
         <div className="relative z-10 mt-2 flex items-center justify-between text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-1 border-t border-slate-200/50">
           <span>COLONY COLLAPSE</span>
-          <span className="flex items-center gap-1" style={{ color: scheme.inkHex }}>
-            <IssueSymbol color={card.color} size={11} strokeWidth={2.6} colorHex={scheme.inkHex} />
+          <span className="flex items-center gap-1 text-slate-600">
+            <ColorIconPair colors={card.colors} size={11} />
             #{String(card.uniqueId).padStart(2, '0')}/{totalCards}
           </span>
         </div>
@@ -474,48 +489,42 @@ const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
 
 // --- TABLETOP SIMULATOR (TTS) CARD COMPONENT (Edge-to-edge 0 gap, full size, sharp square corners) ---
 const TTSCard = ({ card, totalCards = 36 }) => {
-  const scheme = COLOR_SCHEMES[card.color] || COLOR_SCHEMES.Clay;
+  const [leftColor, rightColor] = card.colors;
   const isImmediate = card.type === 'Immediate';
 
   return (
     <div
       className="relative w-[280px] h-[392px] bg-white flex flex-col justify-between overflow-hidden box-border border-b border-r border-slate-300"
-      style={{ borderColor: scheme.darkHex }}
+      style={{ borderColor: CARD_NEUTRAL_TRIM }}
     >
       {/* 1. TOP COLOR BANNER (28% of card) */}
       <div
         className="relative h-[28%] w-full px-3.5 py-3 flex items-center justify-center overflow-hidden text-center"
-        style={{ background: scheme.bannerGradient, color: scheme.inkHex }}
+        style={{ background: splitBannerBackground(card.colors), color: CARD_NEUTRAL_INK }}
       >
-        {/* Issue glyph: the color-blind readable half of the card's identity */}
-        <span
-          className="absolute top-2 left-2 z-10 flex items-center justify-center rounded-full w-6 h-6"
-          style={{ background: 'rgba(255,255,255,0.6)' }}
-        >
-          <IssueSymbol color={card.color} size={15} strokeWidth={2.6} colorHex={scheme.inkHex} />
-        </span>
+        {/* Issue glyphs: the color-blind readable half of the card's identity */}
+        <ColorBadge color={leftColor} iconSize={17} className="top-2 left-2 w-8 h-8" />
+        <ColorBadge color={rightColor} iconSize={17} className="top-2 right-2 w-8 h-8" />
 
         {/* Card Title */}
-        <h3 className="relative z-10 text-lg font-black tracking-tight leading-tight my-auto px-7">
+        <h3 className="relative z-10 text-lg font-black tracking-tight leading-tight my-auto px-9">
           {card.title}
         </h3>
       </div>
+      <div className="h-[3px] w-full flex-shrink-0" style={{ background: splitTrimBackground(card.colors) }} />
 
       {/* 2. CARD BODY AREA (72% light area) */}
-      <div
-        className="relative flex-1 p-3.5 flex flex-col justify-between bg-[#FDFBF7] text-slate-900 border-t-2"
-        style={{ borderTopColor: scheme.darkHex }}
-      >
+      <div className="relative flex-1 p-3.5 flex flex-col justify-between bg-[#FDFBF7] text-slate-900">
         {/* Watermark Illustration */}
         <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] pointer-events-none">
-          <BeeDemocracyEmblemSVG colorHex={scheme.darkHex} size={180} />
+          <BeeDemocracyEmblemSVG colorHex={CARD_NEUTRAL_TRIM} size={180} />
         </div>
 
         {/* Ability Type Indicator Bar */}
         <div className="relative z-10 flex items-center gap-2.5 pb-2 border-b border-slate-200">
           <span
             className="flex items-center justify-center w-8 h-8 rounded-full text-white font-black shadow-sm flex-shrink-0"
-            style={{ backgroundColor: scheme.inkHex }}
+            style={{ backgroundColor: CARD_NEUTRAL_INK }}
           >
             {isImmediate ? <Zap className="w-4.5 h-4.5 fill-current" /> : <RotateCw className="w-4.5 h-4.5" />}
           </span>
@@ -541,8 +550,8 @@ const TTSCard = ({ card, totalCards = 36 }) => {
         {/* Card Footer */}
         <div className="relative z-10 mt-2 flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-1 border-t border-slate-200/50">
           <span>COLONY COLLAPSE</span>
-          <span className="flex items-center gap-1" style={{ color: scheme.inkHex }}>
-            <IssueSymbol color={card.color} size={11} strokeWidth={2.6} colorHex={scheme.inkHex} />
+          <span className="flex items-center gap-1 text-slate-600">
+            <ColorIconPair colors={card.colors} size={11} />
             #{String(card.uniqueId).padStart(2, '0')}/{totalCards}
           </span>
         </div>
@@ -581,18 +590,18 @@ export default function ColonyCollapseAssets() {
 
   // Filter Deck based on user controls
   const filteredDeck = deck.filter((card) => {
-    const matchesColor = selectedColor === 'ALL' || card.color === selectedColor;
+    const matchesColor = selectedColor === 'ALL' || card.colors.includes(selectedColor);
     const matchesType = selectedType === 'ALL' || card.type === selectedType;
     const matchesSearch =
       card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       card.effect.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      card.color.toLowerCase().includes(searchQuery.toLowerCase());
+      card.colors.some((color) => color.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesColor && matchesType && matchesSearch;
   });
 
   // Calculate Statistics
   const colorCounts = Object.fromEntries(
-    CC_COLOR_ORDER.map((color) => [color, deck.filter((card) => card.color === color).length])
+    CC_COLOR_ORDER.map((color) => [color, deck.filter((card) => card.colors.includes(color)).length])
   );
 
   const typeCounts = {
@@ -608,7 +617,7 @@ export default function ColonyCollapseAssets() {
     toPng(cardNode, { cacheBust: true, quality: 0.95 })
       .then((dataUrl) => {
         const link = document.createElement('a');
-        link.download = `ColonyCollapse_${card.title.replace(/\s+/g, '_')}_${card.color}_${card.copyLabel}.png`;
+        link.download = `ColonyCollapse_${card.title.replace(/\s+/g, '_')}_${card.colors.join('-')}_${card.copyLabel.replace(/s+/g, '')}.png`;
         link.href = dataUrl;
         link.click();
       })
@@ -706,7 +715,7 @@ export default function ColonyCollapseAssets() {
               </span>
             </h1>
             <p className="text-slate-400 text-sm mt-1 max-w-2xl">
-              {deck.length} Cards ({cardTemplates.length} abilities × 2 color copies).
+              {deck.length} Cards ({cardTemplates.length} abilities × 2 copies, each copy a different color pair).
             </p>
           </div>
 
@@ -1136,17 +1145,15 @@ export default function ColonyCollapseAssets() {
 
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-2">
-                  <span
-                    className="w-6 h-6 rounded flex items-center justify-center"
-                    style={{ backgroundColor: COLOR_SCHEMES[selectedCardModal.color].hexCode }}
-                  >
-                    <IssueSymbol
-                      color={selectedCardModal.color}
-                      size={14}
-                      strokeWidth={2.6}
-                      colorHex={COLOR_SCHEMES[selectedCardModal.color].inkHex}
-                    />
-                  </span>
+                  {selectedCardModal.colors.map((color) => (
+                    <span
+                      key={color}
+                      className="w-6 h-6 rounded flex items-center justify-center"
+                      style={{ backgroundColor: COLOR_SCHEMES[color].hexCode }}
+                    >
+                      <IssueSymbol color={color} size={14} strokeWidth={2.6} colorHex={COLOR_SCHEMES[color].inkHex} />
+                    </span>
+                  ))}
                   <span className="text-xs text-slate-400 font-semibold">{selectedCardModal.copyLabel}</span>
                 </div>
 

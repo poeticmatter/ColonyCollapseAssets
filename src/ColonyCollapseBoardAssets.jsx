@@ -131,6 +131,10 @@ const TileFaceSVG = ({ faceColor, backColor, className = '' }) => {
 // exactly one inner-ring issue cell plus 2 middle-ring and 3 outer-ring slots.
 const BOARD_RINGS = 3;
 const BOARD_CELL_R = 100; // circumradius of one board cell
+// Each cell's printed face is inset from its grid hex, leaving a gutter
+// between neighbours wide enough for the park borders to sit in without
+// covering the cells.
+const BOARD_CELL_FACE_R = BOARD_CELL_R - 14;
 
 // The shipped district shapes: every district holds exactly one inner-ring
 // issue cell and six cells in total. This is only the DEFAULT - the in-app
@@ -196,14 +200,9 @@ const TRIANGLE_DISTRICT_LAYOUT = DISTRICT_LAYOUT.map((district) => {
   };
 });
 
-// The round-number badge's fill runs from a deep gold (1) to the game's
-// brightest gold (5), so which slots activate early vs. late reads at a
-// glance from color alone, not just the printed digit.
-const ROUND_NUMBER_FILLS = ['#8A5A00', '#A9740A', '#C48D15', '#DFA820', '#F5B301'];
-
 // Dice pips, not a printed digit - a human recognizes a dot count at a glance
 // (subitizing) far faster than reading a numeral, and it works for players
-// who can't rely on the color gradient alone.
+// who can't tell the district colors apart.
 const ROUND_PIP_LAYOUTS = [
   [[0, 0]],
   [
@@ -325,6 +324,11 @@ const buildBoardGeometry = ({ districtByAxial, sortAngle }) => {
     HEX_NEIGHBOR_DIRECTIONS.forEach((direction, edgeIndex) => {
       const neighbor = byAxial.get(`${cell.q + direction.q},${cell.r + direction.r}`);
       if (neighbor && neighbor.district === cell.district) return;
+      // An edge between two districts is seen from both sides; keep only one
+      // copy (opposite directions are 3 apart) so the park colour patches drawn
+      // along it aren't doubled.
+      const neighborAlsoDraws = neighbor != null && neighbor.district != null;
+      if (neighborAlsoDraws && edgeIndex >= 3) return;
       borderSegments.push({ from: vertices[edgeIndex], to: vertices[(edgeIndex + 1) % 6] });
     });
   });
@@ -373,6 +377,83 @@ const HubBeeEmblem = ({ cx, cy, scale = 1.5 }) => (
   </g>
 );
 
+// District borders are drawn as narrow parks: a strip of grass, edged dark so
+// it reads against both chalk issue cells and the dark slots, flecked with
+// small patches of colour - flowerbeds seen from far above, not individual
+// flowers. Placement is fixed per segment (no randomness) so every render and
+// export comes out identical.
+const PARK_EDGE_COLOR = '#12261A';
+const PARK_EDGE_WIDTH = 26;
+const PARK_GRASS_COLOR = '#3F7A3B';
+const PARK_GRASS_WIDTH = 21;
+const PARK_PATCH_POSITIONS = [
+  { along: 0.14, across: -4 },
+  { along: 0.32, across: 3 },
+  { along: 0.5, across: -2 },
+  { along: 0.68, across: 4 },
+  { along: 0.86, across: -3 }
+];
+const PARK_PATCH_COLORS = ['#FFF6E5', '#F4A9C8', '#FFD447', '#C7B4F0', '#F28C6B'];
+// A loose cluster of dots around the patch centre, varied by rotation so
+// neighbouring patches don't look stamped.
+const PARK_PATCH_DOTS = [
+  { x: 0, y: 0, r: 1.7 },
+  { x: 2.6, y: 1, r: 1.3 },
+  { x: -1.8, y: 2.1, r: 1.4 },
+  { x: -0.6, y: -2.4, r: 1.1 }
+];
+
+const ParkPatch = ({ x, y, color, rotationDeg }) => (
+  <g transform={`translate(${x}, ${y}) rotate(${rotationDeg})`} fill={color}>
+    {PARK_PATCH_DOTS.map((dot, dotIdx) => (
+      <circle key={dotIdx} cx={dot.x} cy={dot.y} r={dot.r} />
+    ))}
+  </g>
+);
+
+const patchesAlongSegment = ({ from, to }, segmentIdx) => {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.hypot(dx, dy);
+  const normal = { x: -dy / length, y: dx / length };
+  return PARK_PATCH_POSITIONS.map(({ along, across }, patchIdx) => {
+    const variant = segmentIdx * PARK_PATCH_POSITIONS.length + patchIdx;
+    return {
+      x: from.x + dx * along + normal.x * across,
+      y: from.y + dy * along + normal.y * across,
+      color: PARK_PATCH_COLORS[(segmentIdx + patchIdx * 2) % PARK_PATCH_COLORS.length],
+      rotationDeg: (variant * 137) % 360
+    };
+  });
+};
+
+const ParkStrip = ({ borderSegments, stroke, strokeWidth }) => (
+  <g strokeLinecap="round" stroke={stroke} strokeWidth={strokeWidth}>
+    {borderSegments.map((segment, idx) => (
+      <line key={idx} x1={segment.from.x} y1={segment.from.y} x2={segment.to.x} y2={segment.to.y} />
+    ))}
+  </g>
+);
+
+const DistrictParkBorders = ({ borderSegments }) => (
+  <g>
+    <ParkStrip borderSegments={borderSegments} stroke={PARK_EDGE_COLOR} strokeWidth={PARK_EDGE_WIDTH} />
+    <ParkStrip borderSegments={borderSegments} stroke={PARK_GRASS_COLOR} strokeWidth={PARK_GRASS_WIDTH} />
+    {borderSegments.flatMap((segment, segmentIdx) =>
+      patchesAlongSegment(segment, segmentIdx).map((patch, patchIdx) => (
+        <ParkPatch key={`${segmentIdx}-${patchIdx}`} {...patch} />
+      ))
+    )}
+  </g>
+);
+
+// Slots carry a wash of their district's issue colour - strong enough that a
+// slot clearly reads as the same colour as its issue cell, while staying dark
+// enough for the full-strength round badge to pop. The editor's active brush is louder.
+const SLOT_DISTRICT_WASH_OPACITY = 0.34;
+const SLOT_ACTIVE_BRUSH_WASH_OPACITY = 0.6;
+const UNASSIGNED_BADGE_FILL = '#94A3B8';
+
 const BoardSVG = ({
   cells = BOARD_CELLS,
   borderSegments = DISTRICT_BORDER_SEGMENTS,
@@ -411,40 +492,46 @@ const BoardSVG = ({
               style={interactive ? { cursor: 'pointer' } : undefined}
             >
               <polygon
-                points={hexPointsAt(cell.x, cell.y, BOARD_CELL_R - 3)}
+                points={hexPointsAt(cell.x, cell.y, BOARD_CELL_FACE_R)}
                 fill="#151E2E"
                 stroke="#334155"
                 strokeWidth="3"
               />
-              {/* Wash of the district's own issue colour; brighter for the editor's active brush */}
               {districtColor && (
                 <polygon
-                  points={hexPointsAt(cell.x, cell.y, BOARD_CELL_R - 3)}
+                  points={hexPointsAt(cell.x, cell.y, BOARD_CELL_FACE_R)}
                   fill={CC_COLOR_HEX[districtColor]}
-                  fillOpacity={isActiveBrush ? 0.45 : 0.13}
+                  fillOpacity={isActiveBrush ? SLOT_ACTIVE_BRUSH_WASH_OPACITY : SLOT_DISTRICT_WASH_OPACITY}
                 />
               )}
               <polygon
-                points={hexPointsAt(cell.x, cell.y, BOARD_CELL_R - 22)}
+                points={hexPointsAt(cell.x, cell.y, BOARD_CELL_FACE_R - 19)}
                 fill="none"
                 stroke="#3E4C63"
                 strokeWidth="2.5"
                 strokeDasharray="10 9"
               />
 
-              {/* The round this slot activates: a dice-pip badge, darker to
-                  brighter with the number, so a player can spot every "1"
-                  across the board by shape and color without reading anything. */}
+              {/* The round this slot activates: a dice-pip badge painted in the
+                  district's own issue colour, so each slot visibly belongs to
+                  the issue cell at the head of its district. */}
               <circle
                 cx={cell.x}
                 cy={cell.y}
                 r="30"
-                fill={ROUND_NUMBER_FILLS[cell.roundNumber - 1]}
-                stroke="#0B1220"
-                strokeWidth="2.5"
+                fill={CC_COLOR_HEX[districtColor] || UNASSIGNED_BADGE_FILL}
+                stroke={CC_COLOR_DEEP_HEX[districtColor] || '#0B1220'}
+                strokeWidth="3"
               />
               {ROUND_PIP_LAYOUTS[cell.roundNumber - 1].map(([dx, dy], pipIdx) => (
-                <circle key={pipIdx} cx={cell.x + dx} cy={cell.y + dy} r="5.5" fill="#1A1206" stroke="none" />
+                <circle
+                  key={pipIdx}
+                  cx={cell.x + dx}
+                  cy={cell.y + dy}
+                  r="5.5"
+                  fill={CC_COLOR_INK[districtColor] || '#1A1206'}
+                  stroke="none"
+                />
               ))}
             </g>
           );
@@ -454,7 +541,7 @@ const BoardSVG = ({
           return (
             <g key={key}>
               <polygon
-                points={hexPointsAt(cell.x, cell.y, BOARD_CELL_R - 3)}
+                points={hexPointsAt(cell.x, cell.y, BOARD_CELL_FACE_R)}
                 fill="#101828"
                 stroke="#F5B301"
                 strokeWidth="6"
@@ -472,13 +559,13 @@ const BoardSVG = ({
         return (
           <g key={key}>
             <polygon
-              points={hexPointsAt(cell.x, cell.y, BOARD_CELL_R - 3)}
+              points={hexPointsAt(cell.x, cell.y, BOARD_CELL_FACE_R)}
               fill={issueHex}
               stroke={issueDeep}
               strokeWidth="4"
             />
             <polygon
-              points={hexPointsAt(cell.x, cell.y, BOARD_CELL_R - 16)}
+              points={hexPointsAt(cell.x, cell.y, BOARD_CELL_FACE_R - 13)}
               fill="none"
               stroke={issueDeep}
               strokeWidth="3.5"
@@ -491,31 +578,7 @@ const BoardSVG = ({
         );
       })}
 
-      {/* District borders, cased so they read over both chalk cells and dark slots */}
-      <g strokeLinecap="round">
-        {borderSegments.map((segment, idx) => (
-          <line
-            key={`border-case-${idx}`}
-            x1={segment.from.x}
-            y1={segment.from.y}
-            x2={segment.to.x}
-            y2={segment.to.y}
-            stroke="#080D18"
-            strokeWidth="17"
-          />
-        ))}
-        {borderSegments.map((segment, idx) => (
-          <line
-            key={`border-line-${idx}`}
-            x1={segment.from.x}
-            y1={segment.from.y}
-            x2={segment.to.x}
-            y2={segment.to.y}
-            stroke="#E8DCC5"
-            strokeWidth="6"
-          />
-        ))}
-      </g>
+      <DistrictParkBorders borderSegments={borderSegments} />
     </g>
   </svg>
 );
