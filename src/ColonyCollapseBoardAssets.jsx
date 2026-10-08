@@ -51,13 +51,15 @@ const CC_TILE_PAIRS = (() => {
 })();
 
 // --- 5. TILE FACE ----------------------------------------------------------
-// The face colour fills the hex and carries its own glyph large in the middle.
-// The reverse colour shows on a small hexagon nested near the bottom of the
-// tile - it echoes the tile's own shape rather than introducing a new one, so
-// it reads as a badge that clearly belongs to this piece. No decoration
-// beyond the badge itself, so it stays as clean as the tile's other faces.
+// The face colour fills the hex and carries its own glyph near the top. The
+// reverse colour shows on a small hexagon nested near the bottom of the tile -
+// it echoes the tile's own shape rather than introducing a new one, so it
+// reads as a badge that clearly belongs to this piece. Both icons sit off
+// centre, mirrored across it, so a control token placed in the middle of the
+// tile leaves the face and flip-side colours readable.
 const TILE_BADGE_CENTER = { x: 150, y: 226 };
 const TILE_BADGE_R = 38;
+const TILE_FACE_ICON_CENTER = { x: 150, y: 300 - TILE_BADGE_CENTER.y };
 
 const TileFaceSVG = ({ faceColor, backColor, className = '' }) => {
   const faceHex = CC_COLOR_HEX[faceColor] || faceColor;
@@ -69,9 +71,10 @@ const TileFaceSVG = ({ faceColor, backColor, className = '' }) => {
   const cx = 150;
   const cy = 150;
   const outerR = 132;
-  const centerIconSize = 72;
+  // Smaller than the old centred glyph so it clears the inner border where
+  // the hex narrows toward its top point.
+  const faceIconSize = 56;
   const badgeIconSize = 34;
-  const centerIconY = cy - 10; // nudged up to sit optically centred above the badge
   const backDeep = CC_COLOR_DEEP_HEX[backColor] || '#1E293B';
 
   return (
@@ -91,8 +94,10 @@ const TileFaceSVG = ({ faceColor, backColor, className = '' }) => {
         strokeOpacity="0.55"
       />
 
-      <g transform={`translate(${cx - centerIconSize / 2}, ${centerIconY - centerIconSize / 2})`}>
-        <IssueSymbol color={faceColor} size={centerIconSize} strokeWidth={2} colorHex={faceInk} />
+      <g
+        transform={`translate(${TILE_FACE_ICON_CENTER.x - faceIconSize / 2}, ${TILE_FACE_ICON_CENTER.y - faceIconSize / 2})`}
+      >
+        <IssueSymbol color={faceColor} size={faceIconSize} strokeWidth={2.2} colorHex={faceInk} />
       </g>
 
       {/* Small hex badge showing the reverse colour, nested inside the tile */}
@@ -529,8 +534,13 @@ const DISPLAY_MARGIN = 30;
 const DISPLAY_BOARD_SIZE = (DISPLAY_RING_R + DISPLAY_HEX_R + DISPLAY_MARGIN) * 2;
 const DISPLAY_BOARD_CENTER = { x: DISPLAY_BOARD_SIZE / 2, y: DISPLAY_BOARD_SIZE / 2 };
 
+// Turns the whole ring 30° clockwise from straight-up so each slot lines up
+// with its matching district on the main board. Hexes stay pointy-top, the
+// same as the board cells, so a tile sits the same way in both.
+const DISPLAY_ROTATION_DEG = 30;
+
 const DISPLAY_POSITIONS = CC_COLOR_ORDER.map((color, idx) => {
-  const angleDeg = -90 + 60 * idx;
+  const angleDeg = -90 + DISPLAY_ROTATION_DEG + 60 * idx;
   const angle = (angleDeg * Math.PI) / 180;
   return {
     color,
@@ -545,7 +555,7 @@ import DialTokenSVG from './ColonyCollapseDialToken.jsx';
 
 export const DisplayBoardSVG = ({
   showDialToken = false,
-  dialAngle = -90,
+  dialAngle = DISPLAY_POSITIONS[0].angleDeg,
   className = ''
 }) => (
   <svg
@@ -1585,7 +1595,7 @@ export default function ColonyCollapseBoardAssets() {
 
   const currentDialAngle = useMemo(() => {
     const pos = DISPLAY_POSITIONS.find((p) => p.color === displayDialColor);
-    return pos ? pos.angleDeg : -90;
+    return pos ? pos.angleDeg : DISPLAY_POSITIONS[0].angleDeg;
   }, [displayDialColor]);
 
   // District editor: repaint the 30 outer cells to reshape the six districts
