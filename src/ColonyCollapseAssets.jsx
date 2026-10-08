@@ -393,7 +393,7 @@ const CARD_BANNER_TITLE_COLOR = '#F8F4EA';
 
 const ColorBadge = ({ color, iconSize, className }) => (
   <span
-    className={`flex items-center justify-center rounded-full border-2 ${className}`}
+    className={`flex items-center justify-center rounded-full ${className}`}
     style={{ backgroundColor: CC_COLOR_HEX[color], borderColor: CC_COLOR_DEEP_HEX[color] }}
   >
     <IssueSymbol color={color} size={iconSize} strokeWidth={2.6} />
@@ -401,7 +401,7 @@ const ColorBadge = ({ color, iconSize, className }) => (
 );
 
 const ColorBadgePair = ({ colors, iconSize, badgeClassName }) => (
-  <div className="self-start flex items-center gap-1">
+  <div className="self-start flex-shrink-0 flex items-center gap-1">
     {colors.map((color) => (
       <ColorBadge key={color} color={color} iconSize={iconSize} className={badgeClassName} />
     ))}
@@ -428,14 +428,14 @@ const SingleCard = ({ card, onSelectCard, totalCards = 36 }) => {
     >
       {/* 1. TOP COLOR BANNER (Occupies approx 28% of card) */}
       <div
-        className="relative h-[28%] w-full px-1.5 pt-1.5 pb-2 flex flex-col overflow-hidden text-center"
+        className="relative h-[28%] w-full p-2 flex flex-row items-start gap-1.5 overflow-hidden text-center"
         style={{ background: CARD_BANNER_COLOR, color: CARD_BANNER_TITLE_COLOR }}
       >
         {/* Issue glyphs: the color-blind readable half of the card's identity */}
-        <ColorBadgePair colors={card.colors} iconSize={14} badgeClassName="w-7 h-7" />
+        <ColorBadgePair colors={card.colors} iconSize={24} badgeClassName="w-11 h-11 border-[3px]" />
 
         {/* Card Title */}
-        <h3 className="flex-1 flex items-center justify-center text-base sm:text-lg font-black tracking-tight leading-tight px-2">
+        <h3 className="flex-1 self-stretch flex items-center justify-center text-base sm:text-lg font-black tracking-tight leading-tight px-1">
           {card.title}
         </h3>
       </div>
@@ -498,14 +498,14 @@ const TTSCard = ({ card, totalCards = 36 }) => {
     >
       {/* 1. TOP COLOR BANNER (28% of card) */}
       <div
-        className="relative h-[28%] w-full px-2 pt-2 pb-2.5 flex flex-col overflow-hidden text-center"
+        className="relative h-[28%] w-full p-2.5 flex flex-row items-start gap-2 overflow-hidden text-center"
         style={{ background: CARD_BANNER_COLOR, color: CARD_BANNER_TITLE_COLOR }}
       >
         {/* Issue glyphs: the color-blind readable half of the card's identity */}
-        <ColorBadgePair colors={card.colors} iconSize={17} badgeClassName="w-8 h-8" />
+        <ColorBadgePair colors={card.colors} iconSize={28} badgeClassName="w-[52px] h-[52px] border-[3px]" />
 
         {/* Card Title */}
-        <h3 className="flex-1 flex items-center justify-center text-lg font-black tracking-tight leading-tight px-3">
+        <h3 className="flex-1 self-stretch flex items-center justify-center text-lg font-black tracking-tight leading-tight px-1">
           {card.title}
         </h3>
       </div>
