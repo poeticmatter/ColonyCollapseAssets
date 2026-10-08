@@ -386,16 +386,17 @@ const PARK_EDGE_WIDTH = 26;
 const PARK_GRASS_COLOR = '#3F7A3B';
 const PARK_GRASS_WIDTH = 21;
 const PARK_PATCH_COLORS = ['#FFF6E5', '#F4A9C8', '#FFD447', '#C7B4F0', '#F28C6B'];
-const PARK_PATCH_ANCHORS = [0.2, 0.5, 0.8]; // fraction of the way along a segment
-const PARK_PATCH_ANCHOR_JITTER = 0.07;
-const PARK_PATCH_ACROSS_JITTER = 2;
-const PARK_PATCH_HALF_LENGTH = { min: 9, max: 14 };
-const PARK_PATCH_HALF_WIDTH = 6;
-const PARK_PATCH_DOT_COUNT = { min: 12, max: 20 };
-const PARK_DOT_R = { heart: 1.35, rim: 0.7 };
+const PARK_PATCH_ANCHORS = [0.27, 0.73]; // fraction of the way along a segment
+const PARK_PATCH_ANCHOR_JITTER = 0.05;
+const PARK_PATCH_HALF_LENGTH = { min: 15, max: 21 };
+const PARK_PATCH_DOT_COUNT = { min: 30, max: 42 };
+const PARK_DOT_R = { heart: 1.5, rim: 0.8 };
+// Patches sit on the strip's centre line and span its full width, so their
+// outermost dots just touch the dark edging on both sides.
+const PARK_PATCH_HALF_WIDTH = PARK_GRASS_WIDTH / 2 - PARK_DOT_R.rim;
 // Raising a uniform 0-1 draw to this power bunches dots toward the patch's
 // centre; 1 would spread them evenly by radius, higher clusters harder.
-const PARK_DOT_CLUSTERING = 1.8;
+const PARK_DOT_CLUSTERING = 1.5;
 
 // Mulberry32: a tiny seeded PRNG. Seeding it from the segment index keeps
 // the patches organic-looking while every render and export stays identical.
@@ -430,15 +431,12 @@ const patchesAlongSegment = ({ from, to }, segmentIdx) => {
   const random = createSeededRandom(segmentIdx + 1);
   const dx = to.x - from.x;
   const dy = to.y - from.y;
-  const length = Math.hypot(dx, dy);
-  const normal = { x: -dy / length, y: dx / length };
   const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
   return PARK_PATCH_ANCHORS.map((anchor) => {
     const along = anchor + (random() * 2 - 1) * PARK_PATCH_ANCHOR_JITTER;
-    const across = (random() * 2 - 1) * PARK_PATCH_ACROSS_JITTER;
     return {
-      x: from.x + dx * along + normal.x * across,
-      y: from.y + dy * along + normal.y * across,
+      x: from.x + dx * along,
+      y: from.y + dy * along,
       angleDeg,
       color: PARK_PATCH_COLORS[Math.floor(random() * PARK_PATCH_COLORS.length)],
       dots: buildPatchDots(random)

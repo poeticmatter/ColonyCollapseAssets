@@ -388,8 +388,13 @@ const CardBackGraphicSVG = () => (
 const CARD_NEUTRAL_INK = '#1F2937';
 const CARD_NEUTRAL_TRIM = '#475569';
 
+// Blending two issue colors straight into each other muddies the middle into
+// a third, unrelated hue, so each side fades into a neutral chalk cream
+// instead. The cream center also sits behind the title, keeping it legible.
+const BANNER_NEUTRAL_MIDDLE = '#ECE5D6';
+
 const splitBannerBackground = ([first, second]) =>
-  `linear-gradient(90deg, ${CC_COLOR_HEX[first]} 0%, ${CC_COLOR_HEX[first]} 38%, ${CC_COLOR_HEX[second]} 62%, ${CC_COLOR_HEX[second]} 100%)`;
+  `linear-gradient(90deg, ${CC_COLOR_HEX[first]} 0%, ${CC_COLOR_HEX[first]} 10%, ${BANNER_NEUTRAL_MIDDLE} 34%, ${BANNER_NEUTRAL_MIDDLE} 66%, ${CC_COLOR_HEX[second]} 90%, ${CC_COLOR_HEX[second]} 100%)`;
 
 const splitTrimBackground = ([first, second]) =>
   `linear-gradient(90deg, ${CC_COLOR_DEEP_HEX[first]} 50%, ${CC_COLOR_DEEP_HEX[second]} 50%)`;
