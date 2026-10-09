@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import {
   Download, Printer, LayoutGrid, Filter, FileImage, Package, Grid3x3, Hexagon, Layers,
-  Megaphone, Hammer, Handshake, Radio, Newspaper, GraduationCap, RotateCcw, ArrowRight,
+  Megaphone, Hammer, Handshake, Radio, Newspaper, GraduationCap, RotateCcw,
   Edit3, Copy, TrendingUp, Redo, Circle, Triangle, Compass, Eye
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
@@ -1187,11 +1187,11 @@ const CC_ACTIONS = [
     name: 'Address',
     Icon: Megaphone,
     basic: {
-      steps: [{ glyph: 'bridge' }],
+      steps: [{ glyph: 'bridge', scale: 1.8 }],
       text: 'Move up to N on the rondel. Go up on the issue matching that tile, flip the tile, then go down on the issue matching its new side.'
     },
     upgraded: {
-      steps: [{ glyph: 'bridge' }],
+      steps: [{ glyph: 'bridge', scale: 1.8 }],
       text: 'Move up to N on the rondel. Go up on the issue matching that tile, flip the tile, then go down on the issue matching its new side - or, instead, on the issue matching the district sign.'
     }
   },
@@ -1200,11 +1200,11 @@ const CC_ACTIONS = [
     name: 'Develop',
     Icon: Hammer,
     basic: {
-      steps: [{ glyph: 'place' }],
+      steps: [{ glyph: 'place', scale: 1.7 }],
       text: 'Move N on the rondel. Place that tile on the board under your control.'
     },
     upgraded: {
-      steps: [{ glyph: 'placeFlip' }],
+      steps: [{ glyph: 'placeFlip', scale: 1.7 }],
       text: 'Move N on the rondel. You may flip that tile. Place it on the board under your control.'
     }
   },
@@ -1252,11 +1252,11 @@ const CC_ACTIONS = [
     name: 'Media',
     Icon: Newspaper,
     basic: {
-      steps: [{ glyph: 'flipRow' }],
+      steps: [{ glyph: 'flipRow', scale: 1.8 }],
       text: 'Flip N tiles.'
     },
     upgraded: {
-      steps: [{ glyph: 'flipRow' }, { glyph: 'rallyTile' }],
+      steps: [{ glyph: 'flipRow', scale: 1.15 }, { separator: '+' }, { glyph: 'rallyTile', scale: 1.15 }],
       text: 'Flip N tiles, then rally any one tile - it does not need to be adjacent to your pawn.'
     }
   },
@@ -1265,11 +1265,11 @@ const CC_ACTIONS = [
     name: 'Invest',
     Icon: TrendingUp,
     basic: {
-      steps: [{ glyph: 'issue', label: 'N' }],
+      steps: [{ glyph: 'issue', label: 'N', scale: 1.7 }],
       text: 'Advance any one issue track up to N.'
     },
     upgraded: {
-      steps: [{ glyph: 'issue', label: '2N' }],
+      steps: [{ glyph: 'issue', label: '2N', scale: 1.7 }],
       text: 'Advance any one issue track up to 2N.'
     }
   }
@@ -1353,18 +1353,9 @@ const ActionTileCard = ({ action, side, size = 420 }) => {
 
       {/* Icon row - the gist of the action, no words, spelled out on the reference sheet */}
       <div className="flex-1 flex items-center justify-center gap-3 px-3">
-        {face.steps.map((step, i) => {
-          const previous = face.steps[i - 1];
-          const needsArrow = i > 0 && !step.separator && !previous.separator;
-          return (
-            <React.Fragment key={`${action.id}-${side}-${i}`}>
-              {needsArrow && (
-                <ArrowRight size={22} strokeWidth={3} style={{ color: theme.glyphInk, opacity: 0.55, flexShrink: 0 }} />
-              )}
-              <ActionStep step={step} theme={theme} />
-            </React.Fragment>
-          );
-        })}
+        {face.steps.map((step, i) => (
+          <ActionStep key={`${action.id}-${side}-${i}`} step={step} theme={theme} />
+        ))}
       </div>
     </div>
   );
