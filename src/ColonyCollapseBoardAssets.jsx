@@ -946,21 +946,57 @@ const IssueGlyph = ({ size = 48, label }) => (
   </svg>
 );
 
-// Advance the track matching a tile's colour - the hex sits to the left of
-// the track (which one), no arrow needed since the pairing already says
-// which track advances.
-const IssueTileGlyph = ({ size = 48 }) => (
+// A narrow track pill with an arrow running up or down inside it - the
+// "go up / go down on an issue" mark shared by the tile and card glyphs.
+const TRACK_ARROW_PATHS = {
+  up: { shaft: 'M 0 35 L 0 15', head: 'M -3.6 19 L 0 14.5 L 3.6 19' },
+  down: { shaft: 'M 0 14 L 0 34', head: 'M -3.6 30 L 0 34.5 L 3.6 30' }
+};
+
+const TrackArrow = ({ centerX, direction }) => {
+  const { shaft, head } = TRACK_ARROW_PATHS[direction];
+  return (
+    <>
+      <rect x={centerX - 6} y="7" width="12" height="35" rx="6" />
+      <g transform={`translate(${centerX}, 0)`} strokeWidth="2.4">
+        <path d={shaft} />
+        <path d={head} />
+      </g>
+    </>
+  );
+};
+
+// Go up or down on the issue matching a tile's colour - the hex to the left
+// says which track.
+const IssueTileUpGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <polygon points={hexPointsAt(12, 23, 9.5)} />
-    <TrackLadder x={24} />
+    <polygon points={hexPointsAt(13, 24.5, 10.5)} />
+    <TrackArrow centerX={36} direction="up" />
   </svg>
 );
 
-// Advance the track matching a card's colour - the card sits to the left.
-const IssueCardGlyph = ({ size = 48 }) => (
+const IssueTileDownGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <rect x="5" y="14" width="13" height="18" rx="2.2" />
-    <TrackLadder x={24} />
+    <polygon points={hexPointsAt(13, 24.5, 10.5)} />
+    <TrackArrow centerX={36} direction="down" />
+  </svg>
+);
+
+// Go up on one of a card's two issues and down on the other.
+const IssueCardSwingGlyph = ({ size = 48 }) => (
+  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+    <rect x="2.5" y="15" width="12" height="17" rx="2.2" />
+    <TrackArrow centerX={24} direction="up" />
+    <TrackArrow centerX={39} direction="down" />
+  </svg>
+);
+
+// Resolve a card's printed effect - a card carrying a lightning bolt, the
+// same mark the card fronts use for an Immediate effect.
+const CardEffectGlyph = ({ size = 48 }) => (
+  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+    <rect x="11" y="5" width="26" height="38" rx="3.5" />
+    <path d="M 26.5 12 L 18 26 L 24.5 26 L 21.5 36 L 30 22 L 23.5 22 Z" fill="currentColor" strokeWidth="1.6" />
   </svg>
 );
 
@@ -1004,26 +1040,10 @@ const RallyOneGlyph = ({ size = 48 }) => {
   );
 };
 
-// Two touching tiles side by side - shared by the move and rally-adjacent
-// glyphs so the pawn's tile sits in the same spot in both.
+// Two touching tiles side by side, for the move glyph.
 const PAIR_HEX_R = 10.5;
 const PAIR_LEFT = { x: 14.9, y: 24 };
 const PAIR_RIGHT = { x: PAIR_LEFT.x + Math.sqrt(3) * PAIR_HEX_R, y: 24 };
-
-// Rally a tile next to your pawn: the pawn's tile with a dot at its center,
-// and the adjacent tile climbing with the rally chevrons.
-const RallyAdjacentGlyph = ({ size = 48 }) => {
-  const [upper, lower] = chevronPair(PAIR_RIGHT.x, PAIR_RIGHT.y, PAIR_HEX_R);
-  return (
-    <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-      <polygon points={hexPointsAt(PAIR_LEFT.x, PAIR_LEFT.y, PAIR_HEX_R)} />
-      <circle cx={PAIR_LEFT.x} cy={PAIR_LEFT.y} r="3.4" fill="currentColor" stroke="none" />
-      <polygon points={hexPointsAt(PAIR_RIGHT.x, PAIR_RIGHT.y, PAIR_HEX_R)} />
-      <path d={upper} strokeWidth="2.2" />
-      <path d={lower} strokeWidth="2.2" />
-    </svg>
-  );
-};
 
 // Rally a tile and every tile around it: a full seven-hex flower, each hex
 // climbing with the same chevrons as a single-tile rally. Radius 8.5 is the
@@ -1073,17 +1093,7 @@ const MoveGlyph = ({ size = 48 }) => (
   </svg>
 );
 
-// The numbered row of cards you may play from.
-const CardsGlyph = ({ size = 48 }) => (
-  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <rect x="4.5" y="19" width="13" height="18" rx="2.2" />
-    <rect x="17.5" y="14" width="13" height="18" rx="2.2" fill="currentColor" stroke="none" />
-    <rect x="30.5" y="19" width="13" height="18" rx="2.2" />
-  </svg>
-);
-
-// Draw several cards and keep one - also stands in for peeking at the top
-// of the deck, since both are "reach for the draw pile" gestures.
+// Look at the top cards of the deck and play one.
 const DrawGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
     <rect x="3" y="14" width="13" height="18" rx="2.2" opacity="0.5" />
@@ -1099,282 +1109,42 @@ const RepeatGlyph = ({ size = 48 }) => <RotateCcw size={size} strokeWidth={2} />
 const ACTION_GLYPHS = {
   display: DisplayGlyph,
   issue: IssueGlyph,
-  issueTile: IssueTileGlyph,
-  issueCard: IssueCardGlyph,
+  issueTileUp: IssueTileUpGlyph,
+  issueTileDown: IssueTileDownGlyph,
+  issueCardSwing: IssueCardSwingGlyph,
+  cardEffect: CardEffectGlyph,
   flip: FlipGlyph,
   place: PlaceGlyph,
   rallyTile: RallyOneGlyph,
-  rallyAdjacent: RallyAdjacentGlyph,
   rallyCluster: RallyClusterGlyph,
   rallyClusterEqual: RallyClusterEqualGlyph,
   move: MoveGlyph,
-  cards: CardsGlyph,
   draw: DrawGlyph,
   repeat: RepeatGlyph
 };
 
-// --- 7B. ICON REFERENCE SHEET ----------------------------------------------
-// The tiles themselves carry no words now - this sheet is where the icon
-// language actually gets explained, once, in plain sentences.
-const ICON_LEGEND_ENTRIES = [
-  {
-    key: 'display',
-    category: 'Turn & Movement',
-    label: 'Colonists priority',
-    description: 'Move the dial up to N colonist slots around the ring.'
-  },
-  {
-    key: 'move',
-    category: 'Turn & Movement',
-    label: 'Move your pawn',
-    description: 'Move the shared pawn from the center of one tile to the center of an adjacent tile.'
-  },
-  {
-    key: 'issueCard',
-    category: 'Advance a Track',
-    label: "A card's issue",
-    description: "Advance the track matching that card's color."
-  },
-  {
-    key: 'issueTile',
-    category: 'Advance a Track',
-    label: "A colonist's issue",
-    description: "Advance the track matching that colonist's color."
-  },
-  {
-    key: 'issue',
-    category: 'Advance a Track',
-    label: 'Advance with a limit',
-    description: 'Advance any one issue track of your choice, up to the value shown.'
-  },
-  {
-    key: 'flip',
-    category: 'Board Actions',
-    label: 'Flip a colonist',
-    description: 'Flip a colonist tile over to its other color.'
-  },
-  {
-    key: 'place',
-    category: 'Board Actions',
-    label: 'Place a colonist',
-    description: 'Place a colonist tile onto an empty slot on the board.'
-  },
-  {
-    key: 'rallyTile',
-    category: 'Rally',
-    label: 'Rally one tile',
-    description: 'Rally a single tile.'
-  },
-  {
-    key: 'rallyAdjacent',
-    category: 'Rally',
-    label: 'Rally, adjacent to pawn',
-    description: 'Rally one tile adjacent to the tile your pawn is on.'
-  },
-  {
-    key: 'rallyCluster',
-    category: 'Rally',
-    label: 'Rally a tile and its neighbors',
-    description: 'Rally a tile and each tile adjacent to it. Chevrons: you must be ahead on that issue.'
-  },
-  {
-    key: 'rallyClusterEqual',
-    category: 'Rally',
-    label: 'Rally, ties count',
-    description: 'The same rally, but a tie on that issue is enough - you don’t need to be strictly ahead.'
-  },
-  {
-    key: 'cards',
-    category: 'Cards',
-    label: 'Play a card',
-    description: 'Play a card from the numbered display.'
-  },
-  {
-    key: 'draw',
-    category: 'Cards',
-    label: 'Draw / look',
-    description: 'Draw from the deck, or look at its top card, and keep one.'
-  },
-  {
-    key: 'repeat',
-    category: 'Other',
-    label: 'Repeat',
-    description: 'Repeat your previous action.'
-  }
-];
-
-const ICON_LEGEND_CONVENTIONS = [
-  { type: 'arrow-right', description: 'Perform the left action, then the right action.' },
-  { type: 'arrow-down', description: 'Same meaning as → - the sequence just wrapped onto a second row.' },
-  { type: 'slash', description: 'Perform the left action, or the right action.' },
-  { type: 'chip', description: 'A fixed number or word (like "N = 1") - not the tile’s own strength.' },
-  { type: 'square', description: 'A single action, done once.' },
-  { type: 'circle', description: 'Repeat this step N times - the notch at the top marks it as a repeat.' },
-  { type: 'triangle', description: 'This is the tile’s upgraded side.' }
-];
-
-// Draws the actual shape each convention refers to, so the sheet shows the
-// rule instead of just describing it.
-const ConventionSwatch = ({ type }) => {
-  const boxStyle = {
-    borderColor: '#22304A',
-    background: '#FFFFFF',
-    color: '#22304A'
-  };
-  const swatchBox = (className, content) => (
-    <span className={`flex items-center justify-center shrink-0 ${className}`} style={{ width: 56, height: 56 }}>
-      {content}
-    </span>
-  );
-  const demoSquare = () => <span className="rounded-xl border-2 shrink-0" style={{ ...boxStyle, width: 48, height: 48 }} />;
-
-  if (type === 'arrow-right' || type === 'slash') {
-    const connector = type === 'arrow-right'
-      ? <ArrowRight size={26} strokeWidth={3} color="#22304A" />
-      : <span style={{ fontSize: 28, fontWeight: 900, color: '#22304A', lineHeight: 1 }}>/</span>;
-    return (
-      <span className="flex items-center gap-2 shrink-0" style={{ height: 56 }}>
-        {demoSquare()}
-        {connector}
-        {demoSquare()}
-      </span>
-    );
-  }
-  if (type === 'arrow-down') {
-    return swatchBox('', <ArrowRight size={28} strokeWidth={3} color="#22304A" style={{ transform: 'rotate(90deg)' }} />);
-  }
-  if (type === 'chip') {
-    return swatchBox(
-      '',
-      <span
-        className="rounded-lg border-2 flex flex-col items-center justify-center gap-0.5"
-        style={{ ...boxStyle, width: 48, height: 48 }}
-      >
-        <span className="text-[15px] font-black leading-none">N = 1</span>
-      </span>
-    );
-  }
-  if (type === 'square') {
-    return swatchBox('', demoSquare());
-  }
-  if (type === 'circle') {
-    return (
-      <span className="relative flex items-center justify-center shrink-0" style={{ width: 56, height: 56 }}>
-        <span className="border-2" style={{ ...boxStyle, width: 48, height: 48, borderRadius: '9999px' }} />
-        <svg viewBox="0 0 20 20" width="36" height="36" style={{ position: 'absolute', top: -10.4, left: '50%', transform: 'translateX(-50%)' }}>
-          <path d="M 6 13 L 11 8 L 6 3" stroke={boxStyle.borderColor} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-    );
-  }
-  // triangle - filled with the upgraded side's own color, so the swatch
-  // matches the actual corner badge on an upgraded tile.
-  return swatchBox(
-    'rounded-xl',
-    <span className="rounded-xl flex items-center justify-center" style={{ width: 48, height: 48, background: ACTION_SIDE_THEME.upgraded.headerBg }}>
-      <Triangle size={26} fill="#FFFFFF" color="#FFFFFF" strokeWidth={0} />
-    </span>
-  );
-};
-
-// Consecutive entries sharing a category become one visual cluster - the
-// three rally icons and the three "advance a track" icons each stay
-// together as a group rather than scattering through a flat grid.
-const ICON_LEGEND_GROUPS = ICON_LEGEND_ENTRIES.reduce((groups, entry) => {
-  const lastGroup = groups[groups.length - 1];
-  if (lastGroup && lastGroup.category === entry.category) {
-    lastGroup.entries.push(entry);
-  } else {
-    groups.push({ category: entry.category, entries: [entry] });
-  }
-  return groups;
-}, []);
-
-const ActionIconLegendSheet = () => (
-  <div
-    className="font-sans"
-    style={{ width: 1240, background: '#0B1220', padding: 44, borderRadius: 30, border: '4px solid #22304A' }}
-  >
-    <div className="flex items-center gap-3 mb-1">
-      <Hexagon className="w-8 h-8 text-amber-400" />
-      <span className="text-[32px] font-black text-amber-400 tracking-tight">Action Tile Icon Reference</span>
-    </div>
-    <p className="text-[15px] text-slate-400 mb-8">What each symbol on an action tile means.</p>
-
-    <div className="grid grid-cols-2 gap-6 mb-8 items-start">
-      {ICON_LEGEND_GROUPS.map((group) => (
-        <div
-          key={group.category}
-          className="rounded-2xl border-2 p-4"
-          style={{ background: '#F7F2E4', borderColor: '#22304A' }}
-        >
-          <div className="text-[13px] font-black uppercase tracking-wider mb-3" style={{ color: '#8A5A00' }}>
-            {group.category}
-          </div>
-          <div className="flex flex-col gap-4">
-            {group.entries.map((entry) => {
-              const Glyph = ACTION_GLYPHS[entry.key];
-              return (
-                <div key={entry.key} className="flex items-center gap-4">
-                  <span
-                    className="rounded-xl border-2 flex items-center justify-center shrink-0"
-                    style={{ width: 70, height: 70, borderColor: '#22304A', background: '#FFFFFF', color: '#22304A' }}
-                  >
-                    <Glyph size={48} />
-                  </span>
-                  <div>
-                    <div className="text-[17px] font-black leading-tight" style={{ color: '#22304A' }}>
-                      {entry.label}
-                    </div>
-                    <div className="text-[13px] leading-snug mt-0.5" style={{ color: '#6B5D4F' }}>
-                      {entry.description}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-
-    <div className="rounded-2xl border-2 p-5" style={{ background: '#F7F2E4', borderColor: '#22304A' }}>
-      <div className="text-[14px] font-black uppercase tracking-wider mb-4" style={{ color: '#8A5A00' }}>
-        Reading the tiles
-      </div>
-      <div className="grid grid-cols-2 gap-x-10 gap-y-4">
-        {ICON_LEGEND_CONVENTIONS.map((item) => (
-          <div key={item.type} className="flex items-center gap-4">
-            <ConventionSwatch type={item.type} />
-            <div className="text-[13px] leading-snug" style={{ color: '#6B5D4F' }}>
-              {item.description}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  </div>
-);
-
-// --- 8. THE 6 DOUBLE-SIDED ACTION TILES ------------------------------------
-// `steps` is the icon sentence across the middle of the tile, `text` is the
-// rule, and `bonus` is the clause the upgraded side adds, highlighted in gold.
+// --- 8. THE 7 DOUBLE-SIDED ACTION TILES ------------------------------------
+// `rows` is the icon sentence across the middle of the tile; `text` is the
+// full rule for that side, printed on the reference sheet (the tiles carry no
+// words). Each side's text stands on its own rather than as a delta.
 const CC_ACTIONS = [
   {
     id: 'address',
     name: 'Address',
     Icon: Megaphone,
     basic: {
-      rows: [{ steps: [{ glyph: 'display', repeat: true }, { glyph: 'issueTile' }] }, { connector: 'then', steps: [{ glyph: 'flip' }] }],
-      text: 'Move up to N on the display. Advance that tile’s issue, then flip it.'
+      rows: [
+        { steps: [{ glyph: 'display', repeat: true }, { glyph: 'issueTileUp' }] },
+        { connector: 'then', steps: [{ glyph: 'flip' }, { glyph: 'issueTileDown' }] }
+      ],
+      text: 'Move up to N on the rondel. Go up on the issue matching that tile, flip the tile, then go down on the issue matching its new side.'
     },
     upgraded: {
       rows: [
-        { steps: [{ glyph: 'display', repeat: true }, { glyph: 'issueTile' }] },
-        { connector: 'then', steps: [{ glyph: 'flip' }, { glyph: 'place' }] }
+        { steps: [{ glyph: 'display', repeat: true }, { glyph: 'issueTileUp' }] },
+        { connector: 'then', steps: [{ glyph: 'flip' }, { glyph: 'issueTileDown' }] }
       ],
-      text: 'Move up to N on the display. Advance that tile’s issue, then flip it.',
-      bonus: 'Then place that tile on the board.'
+      text: 'Move up to N on the rondel. Go up on the issue matching that tile, flip the tile, then go down on the issue matching its new side - or, instead, on the issue matching the district sign.'
     }
   },
   {
@@ -1382,16 +1152,18 @@ const CC_ACTIONS = [
     name: 'Develop',
     Icon: Hammer,
     basic: {
-      rows: [{ steps: [{ glyph: 'display', repeat: true }] }, { connector: 'then', steps: [{ glyph: 'place' }] }],
-      text: 'Move N on the display. Place that tile on the board.'
-    },
-    upgraded: {
       rows: [
         { steps: [{ glyph: 'display', repeat: true }, { glyph: 'place' }] },
         { connector: 'then', steps: [{ glyph: 'rallyTile' }] }
       ],
-      text: 'Move N on the display. Place that tile on the board.',
-      bonus: 'Then rally that tile.'
+      text: 'Move N on the rondel. Place that tile on the board under your control.'
+    },
+    upgraded: {
+      rows: [
+        { steps: [{ glyph: 'display', repeat: true }, { glyph: 'flip' }] },
+        { connector: 'then', steps: [{ glyph: 'place' }, { glyph: 'rallyTile' }] }
+      ],
+      text: 'Move N on the rondel. You may flip that tile. Place it on the board under your control.'
     }
   },
   {
@@ -1399,16 +1171,18 @@ const CC_ACTIONS = [
     name: 'Leverage',
     Icon: Handshake,
     basic: {
-      rows: [{ steps: [{ glyph: 'cards' }, { separator: '/' }, { glyph: 'draw' }] }],
-      text: 'Play a card from slots 1–N, or draw N cards and play one of them.'
+      rows: [
+        { steps: [{ glyph: 'draw' }] },
+        { connector: 'then', steps: [{ glyph: 'cardEffect' }, { separator: '/' }, { glyph: 'issueCardSwing' }] }
+      ],
+      text: 'Look at the top N cards of the deck and play one. Either resolve its effect, or go up on one of its issues and down on the other.'
     },
     upgraded: {
       rows: [
-        { steps: [{ glyph: 'cards' }, { separator: '/' }, { glyph: 'draw' }] },
-        { connector: 'then', steps: [{ glyph: 'issueCard' }] }
+        { steps: [{ glyph: 'draw' }] },
+        { connector: 'then', steps: [{ glyph: 'cardEffect' }, { glyph: 'issueCardSwing' }] }
       ],
-      text: 'Play a card from slots 1–N, or draw N cards and play one of them.',
-      bonus: 'Then advance the issue matching that card’s color.'
+      text: 'Look at the top N cards of the deck and play one. Resolve its effect, go up on one of its issues and down on the other, or do both.'
     }
   },
   {
@@ -1421,8 +1195,7 @@ const CC_ACTIONS = [
     },
     upgraded: {
       rows: [{ steps: [{ glyph: 'move', repeat: true }, { glyph: 'rallyClusterEqual' }] }],
-      text: 'Move the pawn N tiles, then rally its tile and each adjacent tile.',
-      bonus: 'You may rally issues on which you are tied.'
+      text: 'Move the pawn N tiles, then rally its tile and each adjacent tile. You may also rally tiles whose issue you are only tied on.'
     }
   },
   {
@@ -1435,8 +1208,7 @@ const CC_ACTIONS = [
     },
     upgraded: {
       rows: [{ steps: [{ glyph: 'repeat' }, { chip: ['N = 1'] }] }],
-      text: 'Repeat your previous action at strength 1.',
-      bonus: 'You may use its upgraded side.'
+      text: 'Repeat your previous action at strength 1, using either of its sides.'
     }
   },
   {
@@ -1448,9 +1220,8 @@ const CC_ACTIONS = [
       text: 'Flip N tiles.'
     },
     upgraded: {
-      rows: [{ steps: [{ glyph: 'flip', repeat: true }, { glyph: 'rallyAdjacent' }] }],
-      text: 'Flip N tiles.',
-      bonus: 'Then rally the tile adjacent to your pawn.'
+      rows: [{ steps: [{ glyph: 'flip', repeat: true }, { glyph: 'rallyTile' }] }],
+      text: 'Flip N tiles, then rally any one tile - it does not need to be adjacent to your pawn.'
     }
   },
   {
@@ -1463,8 +1234,7 @@ const CC_ACTIONS = [
     },
     upgraded: {
       rows: [{ steps: [{ glyph: 'issue', label: '2N' }] }],
-      text: 'Advance any one issue track up to N.',
-      bonus: 'Advance it up to 2N instead.'
+      text: 'Advance any one issue track up to 2N.'
     }
   }
 ];
@@ -1499,8 +1269,8 @@ const ACTION_SIDE_THEME = {
 // tile reads at the same scale instead of icons shrinking as a row fills up.
 const ACTION_GLYPH_SIZE = 88;
 
-// A plain icon box, no label underneath - the icon reference sheet carries
-// the explanation now, so the tile itself can give the icon all the room.
+// A plain icon box, no label underneath - the reference sheet carries
+// the explanation, so the tile itself can give the icon all the room.
 const ActionStep = ({ step, theme, glyphSize }) => {
   if (step.separator) {
     return (
@@ -1606,7 +1376,7 @@ const ActionTileCard = ({ action, side, size = 420 }) => {
         {isUpgraded && <Triangle size={28} fill={theme.headerInk} color={theme.headerInk} strokeWidth={0} />}
       </div>
 
-      {/* Icon sentence - the whole rule, no words, explained on the icon reference sheet */}
+      {/* Icon sentence - the whole rule, no words, spelled out on the reference sheet */}
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-3">
         {face.rows.map((row, rowIdx) => (
           <React.Fragment key={`row-${rowIdx}`}>
@@ -1642,6 +1412,56 @@ const ActionTileCard = ({ action, side, size = 420 }) => {
     </div>
   );
 };
+
+// --- 8a. ACTION REFERENCE SHEET --------------------------------------------
+// Rules only, no icons: one row per action, the basic side's full text beside
+// the upgraded side's. The tiles carry the icons; this is what they mean.
+const ActionReferenceSheet = () => (
+  <div
+    className="font-sans"
+    style={{ width: 1240, background: '#0B1220', padding: 44, borderRadius: 30, border: '4px solid #22304A' }}
+  >
+    <div className="flex items-center gap-3 mb-8">
+      <Hexagon className="w-8 h-8 text-amber-400" />
+      <span className="text-[32px] font-black text-amber-400 tracking-tight">Action Tile Reference</span>
+    </div>
+
+    <div className="grid gap-x-4 gap-y-3" style={{ gridTemplateColumns: '200px 1fr 1fr' }}>
+      <span />
+      {['basic', 'upgraded'].map((side) => (
+        <div
+          key={`reference-heading-${side}`}
+          className="flex items-center gap-2 rounded-xl px-4 py-2 text-[15px] font-black uppercase tracking-wider"
+          style={{ background: ACTION_SIDE_THEME[side].headerBg, color: ACTION_SIDE_THEME[side].headerInk }}
+        >
+          {side === 'basic' ? 'Basic' : 'Upgraded'}
+          {side === 'upgraded' && <Triangle size={14} fill="#FFFFFF" color="#FFFFFF" strokeWidth={0} />}
+        </div>
+      ))}
+
+      {CC_ACTIONS.map((action) => {
+        const { Icon } = action;
+        return (
+          <React.Fragment key={`reference-${action.id}`}>
+            <div className="flex items-center gap-3 rounded-xl px-4 py-3" style={{ background: '#22304A', color: '#FFFFFF' }}>
+              <Icon size={26} strokeWidth={2.2} />
+              <span className="text-[22px] font-black tracking-tight leading-none">{action.name}</span>
+            </div>
+            {['basic', 'upgraded'].map((side) => (
+              <div
+                key={`reference-${action.id}-${side}`}
+                className="rounded-xl border-2 px-4 py-3 text-[16px] leading-snug flex items-center"
+                style={{ background: ACTION_TILE_SHARED.body, borderColor: ACTION_SIDE_THEME[side].border, color: '#22304A' }}
+              >
+                {action[side].text}
+              </div>
+            ))}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  </div>
+);
 
 // --- 8b. ACTION UPGRADE MARKERS (issue-track slot-3 tiles) -----------------
 // Just the header strip of an action tile's upgraded side - icon, name, gold
@@ -2413,21 +2233,21 @@ export default function ColonyCollapseBoardAssets() {
               </button>
               <button
                 onClick={() =>
-                  exportSheet('cc-icon-legend', 'ColonyCollapse_ActionTiles_IconReference.png')
+                  exportSheet('cc-action-reference', 'ColonyCollapse_ActionTiles_Reference.png')
                 }
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"
               >
-                <Hexagon className="w-4 h-4" /> Icon reference sheet
+                <Hexagon className="w-4 h-4" /> Reference sheet
               </button>
               <p className="text-xs text-slate-500 max-w-lg">
-                Tiles carry icons only now, no rule text - the icon reference sheet below is
-                where every symbol actually gets explained.
+                Tiles carry icons only, no rule text - the reference sheet below spells out
+                every action's basic and upgraded side in full.
               </p>
             </div>
 
             <div className="mb-6 bg-slate-900 border border-slate-800 rounded-2xl p-4 overflow-x-auto">
-              <ActionIconLegendSheet />
+              <ActionReferenceSheet />
             </div>
 
             <div className="flex flex-col gap-6">
@@ -2615,8 +2435,8 @@ export default function ColonyCollapseBoardAssets() {
         {/* fit-content: as a plain block this wrapper stretches to the widest
             sibling in the hidden export container (the tile sheets), which
             leaves empty space to the right of the 1240px sheet. */}
-        <div id="cc-icon-legend" style={{ width: 'fit-content' }}>
-          <ActionIconLegendSheet />
+        <div id="cc-action-reference" style={{ width: 'fit-content' }}>
+          <ActionReferenceSheet />
         </div>
       </div>
 
