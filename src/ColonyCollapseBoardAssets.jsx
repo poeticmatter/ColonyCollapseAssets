@@ -851,7 +851,9 @@ export const DisplayBoardSVG = ({
 
 // --- 7. ACTION GLYPHS -------------------------------------------------------
 // Each glyph is a 48x48 line drawing that inherits `currentColor`, so the same
-// artwork works on the light basic side and the dark upgraded side.
+// artwork works on the light basic side and the dark upgraded side. A tile
+// gives the gist of its action in one or two glyphs; the reference sheet
+// carries the full rule.
 const glyphFrame = {
   fill: 'none',
   stroke: 'currentColor',
@@ -860,14 +862,44 @@ const glyphFrame = {
   strokeLinejoin: 'round'
 };
 
+// Marks drawn in the step box's own colour so they read as cut out of a
+// filled shape. Every step box is white on both sides of the tile.
+const GLYPH_KNOCKOUT = '#FFFFFF';
+
 const pointsOnRing = (count, ringR, startDeg = -90) =>
   Array.from({ length: count }, (_, i) => {
     const angle = (Math.PI / 180) * (startDeg + (360 / count) * i);
     return { x: 24 + ringR * Math.cos(angle), y: 24 + ringR * Math.sin(angle), angle };
   });
 
+const formatPoints = (vertices) => vertices.map((v) => `${v.x.toFixed(2)},${v.y.toFixed(2)}`).join(' ');
+
+// A colonist tile showing both of its sides at once - one half filled - the
+// shared shorthand for "flip".
+const HALF_HEX_VERTEX_INDICES = { left: [0, 3, 4, 5], right: [0, 1, 2, 3] };
+
+const TwoToneHex = ({ cx, cy, r, filledHalf = 'left' }) => {
+  const vertices = hexVerticesAt(cx, cy, r);
+  const half = HALF_HEX_VERTEX_INDICES[filledHalf].map((i) => vertices[i]);
+  return (
+    <>
+      <polygon points={formatPoints(half)} fill="currentColor" stroke="none" opacity="0.85" />
+      <polygon points={hexPointsAt(cx, cy, r)} />
+    </>
+  );
+};
+
+// The curled "turn it over" arrow, drawn in a 24-unit box and scaled into
+// place; the stroke is divided back out so it keeps a constant weight.
+const FlipCurl = ({ x, y, scale, strokeWidth = 2 }) => (
+  <g transform={`translate(${x}, ${y}) scale(${scale})`} strokeWidth={strokeWidth / scale}>
+    <path d="M21 7v6h-6" />
+    <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
+  </g>
+);
+
 // A pair of stacked upward chevrons sized to a hex of radius r, used to mark
-// a tile as "rallying" - shared so the single-hex and three-hex versions
+// a tile as "rallying" - shared so the single-hex and seven-hex versions
 // climb in exactly the same proportions.
 const chevronPair = (cx, cy, r) => {
   const halfWidth = r * 0.531;
@@ -883,7 +915,7 @@ const chevronPair = (cx, cy, r) => {
 
 // A pair of horizontal bars ("=") sized to a hex of radius r - the upgraded
 // counterpart to chevronPair: chevrons mean "must be ahead", equals means
-// "ties count too", replacing what used to be a text label under the icon.
+// "ties count too".
 const equalsPair = (cx, cy, r) => {
   const halfWidth = r * 0.5;
   const y1 = cy - r * 0.22;
@@ -894,22 +926,7 @@ const equalsPair = (cx, cy, r) => {
   ];
 };
 
-// The display: six hexes in a circle with one shared pawn moving around them.
-// The orbit arrow covers about a third of the ring, clear of the hexes.
-const DisplayGlyph = ({ size = 48 }) => (
-  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    {pointsOnRing(6, 16).map((pos, idx) => (
-      <polygon key={`display-hex-${idx}`} points={hexPointsAt(pos.x, pos.y, 5.5)} />
-    ))}
-    {/* A miniature version of the dial token itself, aimed at one slot */}
-    <circle cx="24" cy="24" r="7" />
-    <polygon points="24,17 19.5,23 28.5,23" fill="currentColor" stroke="none" />
-    <circle cx="24" cy="24" r="2" fill="currentColor" stroke="none" />
-  </svg>
-);
-
-// The bare track ladder shared by every "advance an issue" glyph below.
-// `x` lets it sit on either side of whatever it's paired with.
+// The bare track ladder used by the "advance an issue" glyph.
 const TrackLadder = ({ x = 8 }) => (
   <>
     <rect x={x} y="7" width="16" height="35" rx="8" />
@@ -920,9 +937,8 @@ const TrackLadder = ({ x = 8 }) => (
   </>
 );
 
-// Advance one step on an issue track - the generic, unattached version, used
-// where there is no card or tile alongside it to say which track. An arrow
-// capped by a line ("up to a limit"), with how far - N or 2N - named above it.
+// Advance one issue track - an arrow capped by a line ("up to a limit"), with
+// how far - N or 2N - named above it.
 const IssueGlyph = ({ size = 48, label }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
     <TrackLadder x={2} />
@@ -946,85 +962,92 @@ const IssueGlyph = ({ size = 48, label }) => (
   </svg>
 );
 
-// A narrow track pill with an arrow running up or down inside it - the
-// "go up / go down on an issue" mark shared by the tile and card glyphs.
-const TRACK_ARROW_PATHS = {
-  up: { shaft: 'M 0 35 L 0 15', head: 'M -3.6 19 L 0 14.5 L 3.6 19' },
-  down: { shaft: 'M 0 14 L 0 34', head: 'M -3.6 30 L 0 34.5 L 3.6 30' }
-};
-
-const TrackArrow = ({ centerX, direction }) => {
-  const { shaft, head } = TRACK_ARROW_PATHS[direction];
+// A narrow track pill with an arrow running up or down inside it - "go up /
+// go down on an issue".
+const TrackArrow = ({ centerX, direction, top = 7, height = 35 }) => {
+  const isUp = direction === 'up';
+  const tip = isUp ? top + 6 : top + height - 6;
+  const tail = isUp ? top + height - 6 : top + 6;
+  const headY = isUp ? tip + 3.4 : tip - 3.4;
   return (
     <>
-      <rect x={centerX - 6} y="7" width="12" height="35" rx="6" />
-      <g transform={`translate(${centerX}, 0)`} strokeWidth="2.4">
-        <path d={shaft} />
-        <path d={head} />
+      <rect x={centerX - 6} y={top} width="12" height={height} rx="6" />
+      <g strokeWidth="2.2">
+        <path d={`M ${centerX} ${tail} L ${centerX} ${tip}`} />
+        <path d={`M ${centerX - 3.4} ${headY} L ${centerX} ${tip} L ${centerX + 3.4} ${headY}`} />
       </g>
     </>
   );
 };
 
-// Go up or down on the issue matching a tile's colour - the hex to the left
-// says which track.
-const IssueTileUpGlyph = ({ size = 48 }) => (
+// Address: one issue goes up, the other goes down, bridged by a flipping
+// tile - the gist of "up, flip, down" without spelling out each step.
+const BridgeGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <polygon points={hexPointsAt(13, 24.5, 10.5)} />
-    <TrackArrow centerX={36} direction="up" />
+    <TrackArrow centerX={9} direction="up" top={16} height={28} />
+    <TrackArrow centerX={39} direction="down" top={16} height={28} />
+    <TwoToneHex cx={24} cy={30} r={7} />
+    <g strokeWidth="2.2">
+      <path d="M 10 11 C 15 1, 33 1, 38 10" />
+      <path d="M 33.6 8.6 L 38.2 10.4 L 39 5.6" />
+    </g>
   </svg>
 );
 
-const IssueTileDownGlyph = ({ size = 48 }) => (
-  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <polygon points={hexPointsAt(13, 24.5, 10.5)} />
-    <TrackArrow centerX={36} direction="down" />
-  </svg>
-);
-
-// Go up on one of a card's two issues and down on the other.
-const IssueCardSwingGlyph = ({ size = 48 }) => (
-  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <rect x="2.5" y="15" width="12" height="17" rx="2.2" />
-    <TrackArrow centerX={24} direction="up" />
-    <TrackArrow centerX={39} direction="down" />
-  </svg>
-);
-
-// Resolve a card's printed effect - a card carrying a lightning bolt, the
-// same mark the card fronts use for an Immediate effect.
-const CardEffectGlyph = ({ size = 48 }) => (
-  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <rect x="11" y="5" width="26" height="38" rx="3.5" />
-    <path d="M 26.5 12 L 18 26 L 24.5 26 L 21.5 36 L 30 22 L 23.5 22 Z" fill="currentColor" strokeWidth="1.6" />
-  </svg>
-);
-
-// Flip a tile to its other colour: one clean curl with a single arrowhead.
-const FlipGlyph = ({ size = 48 }) => {
-  const verts = hexVerticesAt(24, 17, 11);
-  const leftHalf = [verts[0], verts[3], verts[4], verts[5]]
-    .map((v) => `${v.x.toFixed(2)},${v.y.toFixed(2)}`)
-    .join(' ');
-  return (
-    <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-      <polygon points={leftHalf} fill="currentColor" stroke="none" opacity="0.85" />
-      <polygon points={hexPointsAt(24, 17, 11)} />
-      <g transform="translate(14, 28) scale(0.8333)" strokeWidth="2.4">
-        <path d="M21 7v6h-6" />
-        <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7" />
-      </g>
-    </svg>
-  );
-};
-
-// Place a tile into an empty board slot.
-const PlaceGlyph = ({ size = 48 }) => (
-  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <polygon points={hexPointsAt(24, 9.5, 7.5)} fill="currentColor" stroke="none" />
+// A tile dropping into an empty board slot - shared by both Develop glyphs,
+// which differ only in the falling tile.
+const PlaceDropAndSlot = () => (
+  <>
     <path d="M 24 15 L 24 22.5" strokeWidth="2.6" />
     <path d="M 20.2 18.8 L 24 23 L 27.8 18.8" strokeWidth="2.6" />
     <polygon points={hexPointsAt(24, 35, 11.5)} strokeDasharray="4.5 4" />
+  </>
+);
+
+const PlaceGlyph = ({ size = 48 }) => (
+  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+    <polygon points={hexPointsAt(24, 9.5, 7.5)} fill="currentColor" stroke="none" />
+    <PlaceDropAndSlot />
+  </svg>
+);
+
+// The upgraded drop: the falling tile shows both sides and carries a small
+// flip curl - you may flip it before placing.
+const PlaceFlipGlyph = ({ size = 48 }) => (
+  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+    <TwoToneHex cx={24} cy={9.5} r={7.5} />
+    <FlipCurl x={33} y={1} scale={0.5} />
+    <PlaceDropAndSlot />
+  </svg>
+);
+
+// A card's printed effect - the lightning bolt the card fronts use for an
+// Immediate effect.
+const BoltGlyph = ({ size = 48 }) => (
+  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+    <path
+      transform="translate(24, 24) scale(1.7)"
+      d="M 1.5 -12 L -7 2 L -0.5 2 L -3.5 12 L 5 -2 L -1.5 -2 Z"
+      fill="currentColor"
+      stroke="none"
+    />
+  </svg>
+);
+
+// A card's two issue colours as two halves - one goes up, the other down.
+const SplitCardGlyph = ({ size = 48 }) => (
+  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+    <path
+      d="M 24 4 L 13.6 4 Q 11 4 11 6.6 L 11 41.4 Q 11 44 13.6 44 L 24 44 Z"
+      fill="currentColor"
+      stroke="none"
+      opacity="0.85"
+    />
+    <rect x="11" y="4" width="26" height="40" rx="2.6" />
+    <g strokeWidth="2.6">
+      <path d="M 17.5 35 L 17.5 13 M 13.9 16.6 L 17.5 13 L 21.1 16.6" stroke={GLYPH_KNOCKOUT} />
+      <path d="M 30.5 13 L 30.5 35 M 26.9 31.4 L 30.5 35 L 34.1 31.4" />
+    </g>
   </svg>
 );
 
@@ -1039,11 +1062,6 @@ const RallyOneGlyph = ({ size = 48 }) => {
     </svg>
   );
 };
-
-// Two touching tiles side by side, for the move glyph.
-const PAIR_HEX_R = 10.5;
-const PAIR_LEFT = { x: 14.9, y: 24 };
-const PAIR_RIGHT = { x: PAIR_LEFT.x + Math.sqrt(3) * PAIR_HEX_R, y: 24 };
 
 // Rally a tile and every tile around it: a full seven-hex flower, each hex
 // climbing with the same chevrons as a single-tile rally. Radius 8.5 is the
@@ -1082,68 +1100,74 @@ const RallyClusterEqualGlyph = ({ size = 48 }) => (
   </svg>
 );
 
-// Move the pawn from the center of one tile to the center of the next.
-const MoveGlyph = ({ size = 48 }) => (
+// Intern: a dashed copy behind a miniature action tile - "do that action
+// again". The upgraded glyph adds the upgrade triangle to the copy's header.
+const CopiedActionTile = () => (
+  <>
+    <rect x="5" y="5" width="25" height="25" rx="3" strokeDasharray="3 3" />
+    <rect x="18" y="18" width="25" height="25" rx="3" fill={GLYPH_KNOCKOUT} />
+    <path d="M 18 25.5 L 18 21 Q 18 18 21 18 L 40 18 Q 43 18 43 21 L 43 25.5 Z" fill="currentColor" stroke="none" />
+  </>
+);
+
+const CopyTileGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <polygon points={hexPointsAt(PAIR_LEFT.x, PAIR_LEFT.y, PAIR_HEX_R)} opacity="0.5" />
-    <polygon points={hexPointsAt(PAIR_RIGHT.x, PAIR_RIGHT.y, PAIR_HEX_R)} opacity="0.5" />
-    <circle cx={PAIR_LEFT.x} cy={PAIR_LEFT.y} r="3.4" fill="currentColor" stroke="none" />
-    <path d={`M ${PAIR_LEFT.x + 5.5} 24 L ${PAIR_RIGHT.x} 24`} strokeWidth="2.6" />
-    <path d={`M ${PAIR_RIGHT.x - 4.2} 19.8 L ${PAIR_RIGHT.x} 24 L ${PAIR_RIGHT.x - 4.2} 28.2`} strokeWidth="2.6" />
+    <CopiedActionTile />
   </svg>
 );
 
-// Look at the top cards of the deck and play one.
-const DrawGlyph = ({ size = 48 }) => (
+const CopyUpgradedTileGlyph = ({ size = 48 }) => (
   <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
-    <rect x="3" y="14" width="13" height="18" rx="2.2" opacity="0.5" />
-    <rect x="6.5" y="18" width="13" height="18" rx="2.2" />
-    <path d="M 23.5 27 L 29 27" strokeWidth="2.4" />
-    <path d="M 26.4 23.8 L 30 27 L 26.4 30.2" strokeWidth="2.4" />
-    <rect x="32" y="17" width="13" height="18" rx="2.2" fill="currentColor" stroke="none" />
+    <CopiedActionTile />
+    <polygon points="35.4,23.8 40.6,23.8 38,19.4" fill={GLYPH_KNOCKOUT} stroke="none" />
   </svg>
 );
 
-const RepeatGlyph = ({ size = 48 }) => <RotateCcw size={size} strokeWidth={2} />;
+// Media: a row of tiles flipping, alternate halves filled, under one sweep -
+// "flip several".
+const FlipRowGlyph = ({ size = 48 }) => (
+  <svg viewBox="0 0 48 48" width={size} height={size} {...glyphFrame}>
+    <TwoToneHex cx={8.5} cy={32} r={7} />
+    <TwoToneHex cx={24} cy={32} r={7} filledHalf="right" />
+    <TwoToneHex cx={39.5} cy={32} r={7} />
+    <g strokeWidth="2.2">
+      <path d="M 9 21 C 14 9, 34 9, 39 20" />
+      <path d="M 34.8 18.4 L 39.2 20.6 L 40.3 15.9" />
+    </g>
+  </svg>
+);
 
 const ACTION_GLYPHS = {
-  display: DisplayGlyph,
   issue: IssueGlyph,
-  issueTileUp: IssueTileUpGlyph,
-  issueTileDown: IssueTileDownGlyph,
-  issueCardSwing: IssueCardSwingGlyph,
-  cardEffect: CardEffectGlyph,
-  flip: FlipGlyph,
+  bridge: BridgeGlyph,
   place: PlaceGlyph,
+  placeFlip: PlaceFlipGlyph,
+  bolt: BoltGlyph,
+  splitCard: SplitCardGlyph,
   rallyTile: RallyOneGlyph,
   rallyCluster: RallyClusterGlyph,
   rallyClusterEqual: RallyClusterEqualGlyph,
-  move: MoveGlyph,
-  draw: DrawGlyph,
-  repeat: RepeatGlyph
+  copyTile: CopyTileGlyph,
+  copyUpgradedTile: CopyUpgradedTileGlyph,
+  flipRow: FlipRowGlyph
 };
 
 // --- 8. THE 7 DOUBLE-SIDED ACTION TILES ------------------------------------
-// `rows` is the icon sentence across the middle of the tile; `text` is the
-// full rule for that side, printed on the reference sheet (the tiles carry no
-// words). Each side's text stands on its own rather than as a delta.
+// `steps` is the icon row across the middle of the tile - the gist of the
+// action, not a play-by-play. `text` is the full rule for that side, printed
+// on the reference sheet (the tiles carry no words). Each side's text stands
+// on its own rather than as a delta.
 const CC_ACTIONS = [
   {
     id: 'address',
     name: 'Address',
     Icon: Megaphone,
     basic: {
-      rows: [
-        { steps: [{ glyph: 'display', repeat: true }, { glyph: 'issueTileUp' }] },
-        { connector: 'then', steps: [{ glyph: 'flip' }, { glyph: 'issueTileDown' }] }
-      ],
+      steps: [{ glyph: 'bridge' }],
       text: 'Move up to N on the rondel. Go up on the issue matching that tile, flip the tile, then go down on the issue matching its new side.'
     },
     upgraded: {
-      rows: [
-        { steps: [{ glyph: 'display', repeat: true }, { glyph: 'issueTileUp' }] },
-        { connector: 'then', steps: [{ glyph: 'flip' }, { glyph: 'issueTileDown' }] }
-      ],
+      steps: [{ glyph: 'bridge' }],
       text: 'Move up to N on the rondel. Go up on the issue matching that tile, flip the tile, then go down on the issue matching its new side - or, instead, on the issue matching the district sign.'
     }
   },
@@ -1152,17 +1176,11 @@ const CC_ACTIONS = [
     name: 'Develop',
     Icon: Hammer,
     basic: {
-      rows: [
-        { steps: [{ glyph: 'display', repeat: true }, { glyph: 'place' }] },
-        { connector: 'then', steps: [{ glyph: 'rallyTile' }] }
-      ],
+      steps: [{ glyph: 'place' }],
       text: 'Move N on the rondel. Place that tile on the board under your control.'
     },
     upgraded: {
-      rows: [
-        { steps: [{ glyph: 'display', repeat: true }, { glyph: 'flip' }] },
-        { connector: 'then', steps: [{ glyph: 'place' }, { glyph: 'rallyTile' }] }
-      ],
+      steps: [{ glyph: 'placeFlip' }],
       text: 'Move N on the rondel. You may flip that tile. Place it on the board under your control.'
     }
   },
@@ -1171,17 +1189,11 @@ const CC_ACTIONS = [
     name: 'Leverage',
     Icon: Handshake,
     basic: {
-      rows: [
-        { steps: [{ glyph: 'draw' }] },
-        { connector: 'then', steps: [{ glyph: 'cardEffect' }, { separator: '/' }, { glyph: 'issueCardSwing' }] }
-      ],
+      steps: [{ glyph: 'bolt' }, { separator: '/' }, { glyph: 'splitCard' }],
       text: 'Look at the top N cards of the deck and play one. Either resolve its effect, or go up on one of its issues and down on the other.'
     },
     upgraded: {
-      rows: [
-        { steps: [{ glyph: 'draw' }] },
-        { connector: 'then', steps: [{ glyph: 'cardEffect' }, { glyph: 'issueCardSwing' }] }
-      ],
+      steps: [{ glyph: 'bolt' }, { separator: '+' }, { glyph: 'splitCard' }],
       text: 'Look at the top N cards of the deck and play one. Resolve its effect, go up on one of its issues and down on the other, or do both.'
     }
   },
@@ -1190,11 +1202,11 @@ const CC_ACTIONS = [
     name: 'Dance',
     Icon: Radio,
     basic: {
-      rows: [{ steps: [{ glyph: 'move', repeat: true }, { glyph: 'rallyCluster' }] }],
+      steps: [{ glyph: 'rallyCluster' }],
       text: 'Move the pawn N tiles, then rally its tile and each adjacent tile.'
     },
     upgraded: {
-      rows: [{ steps: [{ glyph: 'move', repeat: true }, { glyph: 'rallyClusterEqual' }] }],
+      steps: [{ glyph: 'rallyClusterEqual' }],
       text: 'Move the pawn N tiles, then rally its tile and each adjacent tile. You may also rally tiles whose issue you are only tied on.'
     }
   },
@@ -1203,11 +1215,11 @@ const CC_ACTIONS = [
     name: 'Intern',
     Icon: GraduationCap,
     basic: {
-      rows: [{ steps: [{ glyph: 'repeat' }, { chip: ['N = 1', 'Basic'] }] }],
+      steps: [{ glyph: 'copyTile' }],
       text: 'Repeat your previous action at strength 1, using its basic side.'
     },
     upgraded: {
-      rows: [{ steps: [{ glyph: 'repeat' }, { chip: ['N = 1'] }] }],
+      steps: [{ glyph: 'copyUpgradedTile' }],
       text: 'Repeat your previous action at strength 1, using either of its sides.'
     }
   },
@@ -1216,11 +1228,11 @@ const CC_ACTIONS = [
     name: 'Media',
     Icon: Newspaper,
     basic: {
-      rows: [{ steps: [{ glyph: 'flip', repeat: true }] }],
+      steps: [{ glyph: 'flipRow' }],
       text: 'Flip N tiles.'
     },
     upgraded: {
-      rows: [{ steps: [{ glyph: 'flip', repeat: true }, { glyph: 'rallyTile' }] }],
+      steps: [{ glyph: 'flipRow' }, { glyph: 'rallyTile' }],
       text: 'Flip N tiles, then rally any one tile - it does not need to be adjacent to your pawn.'
     }
   },
@@ -1229,11 +1241,11 @@ const CC_ACTIONS = [
     name: 'Invest',
     Icon: TrendingUp,
     basic: {
-      rows: [{ steps: [{ glyph: 'issue', label: 'N' }] }],
+      steps: [{ glyph: 'issue', label: 'N' }],
       text: 'Advance any one issue track up to N.'
     },
     upgraded: {
-      rows: [{ steps: [{ glyph: 'issue', label: '2N' }] }],
+      steps: [{ glyph: 'issue', label: '2N' }],
       text: 'Advance any one issue track up to 2N.'
     }
   }
@@ -1265,82 +1277,34 @@ const ACTION_SIDE_THEME = {
   }
 };
 
-// One glyph size everywhere, matching Develop's upgraded tile - every action
-// tile reads at the same scale instead of icons shrinking as a row fills up.
-const ACTION_GLYPH_SIZE = 88;
+// One glyph size everywhere, so every action tile reads at the same scale.
+// Sized so the widest row - two glyphs and a connector - still fits the tile.
+const ACTION_GLYPH_SIZE = 120;
 
 // A plain icon box, no label underneath - the reference sheet carries
 // the explanation, so the tile itself can give the icon all the room.
 const ActionStep = ({ step, theme, glyphSize }) => {
   if (step.separator) {
     return (
-      <span className="text-[30px] font-black leading-none shrink-0" style={{ color: theme.glyphInk, opacity: 0.6 }}>
+      <span className="text-[34px] font-black leading-none shrink-0" style={{ color: theme.glyphInk, opacity: 0.6 }}>
         {step.separator}
       </span>
     );
   }
 
-  if (step.chip) {
-    const lines = Array.isArray(step.chip) ? step.chip : [step.chip];
-    return (
-      <span
-        className="rounded-xl shrink-0 border-2 flex flex-col items-center justify-center gap-0.5"
-        style={{
-          color: theme.glyphInk,
-          borderColor: theme.stepBorder,
-          background: theme.stepBg,
-          width: glyphSize + 24,
-          height: glyphSize + 24
-        }}
-      >
-        {lines.map((line, idx) => (
-          <span
-            key={line}
-            className={idx === 0 ? 'text-[28px] font-black tracking-wide leading-none' : 'text-[15px] font-bold uppercase tracking-widest leading-none opacity-75 mt-1'}
-          >
-            {line}
-          </span>
-        ))}
-      </span>
-    );
-  }
-
   const Glyph = ACTION_GLYPHS[step.glyph];
-  const isRepeat = Boolean(step.repeat);
   return (
     <span
-      className="relative flex items-center justify-center shrink-0"
+      className="flex items-center justify-center shrink-0 rounded-xl border-2"
       style={{
         color: theme.glyphInk,
         background: theme.stepBg,
-        borderWidth: '2px',
-        borderStyle: 'solid',
         borderColor: theme.stepBorder,
-        borderRadius: isRepeat ? '9999px' : '0.75rem',
         width: glyphSize + 24,
         height: glyphSize + 24
       }}
     >
       <Glyph size={glyphSize} label={step.label} />
-      {/* A step done once per N, marked by rounding the frame into a circle
-          with a small clockwise chevron notched into its rim. */}
-      {isRepeat && (
-        <svg
-          viewBox="0 0 20 20"
-          width="36"
-          height="36"
-          style={{ position: 'absolute', top: -15, left: '50%', transform: 'translateX(-50%)' }}
-        >
-          <path
-            d="M 6 13 L 11 8 L 6 3"
-            stroke={theme.stepBorder}
-            strokeWidth="2"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      )}
     </span>
   );
 };
@@ -1350,8 +1314,6 @@ const ActionTileCard = ({ action, side, size = 420 }) => {
   const theme = ACTION_SIDE_THEME[side];
   const face = isUpgraded ? action.upgraded : action.basic;
   const { Icon } = action;
-
-  const glyphSize = ACTION_GLYPH_SIZE;
 
   return (
     <div
@@ -1376,38 +1338,20 @@ const ActionTileCard = ({ action, side, size = 420 }) => {
         {isUpgraded && <Triangle size={28} fill={theme.headerInk} color={theme.headerInk} strokeWidth={0} />}
       </div>
 
-      {/* Icon sentence - the whole rule, no words, spelled out on the reference sheet */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-3">
-        {face.rows.map((row, rowIdx) => (
-          <React.Fragment key={`row-${rowIdx}`}>
-            {rowIdx > 0 &&
-              (row.connector === 'or' ? (
-                <span className="text-[26px] font-black leading-none" style={{ color: theme.glyphInk, opacity: 0.5 }}>
-                  /
-                </span>
-              ) : (
-                <ArrowRight
-                  size={22}
-                  strokeWidth={3}
-                  style={{ color: theme.glyphInk, opacity: 0.45, transform: 'rotate(90deg)' }}
-                />
-              ))}
-            <div className="flex items-center justify-center gap-3">
-              {row.steps.map((step, i) => {
-                const previous = row.steps[i - 1];
-                const needsArrow = i > 0 && !step.separator && !(previous && previous.separator);
-                return (
-                  <React.Fragment key={`${action.id}-${side}-${rowIdx}-${i}`}>
-                    {needsArrow && (
-                      <ArrowRight size={18} strokeWidth={3} style={{ color: theme.glyphInk, opacity: 0.55, flexShrink: 0 }} />
-                    )}
-                    <ActionStep step={step} theme={theme} glyphSize={glyphSize} />
-                  </React.Fragment>
-                );
-              })}
-            </div>
-          </React.Fragment>
-        ))}
+      {/* Icon row - the gist of the action, no words, spelled out on the reference sheet */}
+      <div className="flex-1 flex items-center justify-center gap-3 px-3">
+        {face.steps.map((step, i) => {
+          const previous = face.steps[i - 1];
+          const needsArrow = i > 0 && !step.separator && !previous.separator;
+          return (
+            <React.Fragment key={`${action.id}-${side}-${i}`}>
+              {needsArrow && (
+                <ArrowRight size={22} strokeWidth={3} style={{ color: theme.glyphInk, opacity: 0.55, flexShrink: 0 }} />
+              )}
+              <ActionStep step={step} theme={theme} glyphSize={ACTION_GLYPH_SIZE} />
+            </React.Fragment>
+          );
+        })}
       </div>
     </div>
   );
