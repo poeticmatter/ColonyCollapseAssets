@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Download, Printer, LayoutGrid, Filter, FileImage, ArrowRightLeft, Flower, Gem, Flame, Leaf, Sun, Droplet, Hexagon } from 'lucide-react';
-import { exportForTTS, exportForScreentop, buildAssetFilename } from 'asset-kit';
+import { exportForTTS, exportForScreentop, buildAssetFilename, FILENAME_VARIANTS } from 'asset-kit';
 import ColonyCollapseHexTiles from './ColonyCollapseHexTiles.jsx';
 
 // --- 1. THE 6 OFFICIAL GAME COLORS ---
@@ -229,7 +229,7 @@ export default function ColonyCollapseLiteAssets() {
     if (!node) return;
 
     exportForTTS(node, {
-      filename: buildAssetFilename({ game: 'ColonyCollapseLite', group: 'Cards', variant: 'TTS_15Fronts' }),
+      filename: buildAssetFilename({ group: 'LiteCards', variant: FILENAME_VARIANTS.tts, modifier: 'Fronts' }),
     }).catch((err) => console.error('Export error:', err));
   };
 
@@ -238,7 +238,7 @@ export default function ColonyCollapseLiteAssets() {
     if (!node) return;
 
     exportForTTS(node, {
-      filename: buildAssetFilename({ game: 'ColonyCollapseLite', group: 'Cards', variant: 'TTS_15Backs' }),
+      filename: buildAssetFilename({ group: 'LiteCards', variant: FILENAME_VARIANTS.tts, modifier: 'Backs' }),
     }).catch((err) => console.error('Export error:', err));
   };
 
@@ -247,7 +247,7 @@ export default function ColonyCollapseLiteAssets() {
     if (!node) return;
 
     exportForScreentop(node, {
-      filename: buildAssetFilename({ game: 'ColonyCollapseLite', group: 'Cards', variant: 'Screentop_30CardSheet' }),
+      filename: buildAssetFilename({ group: 'LiteCards', variant: FILENAME_VARIANTS.screentop }),
     }).catch((err) => console.error('Export error:', err));
   };
 

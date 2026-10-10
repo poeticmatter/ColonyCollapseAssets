@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
-    "asset-kit": "github:poeticmatter/AssetKit#v0.1.1",
+    "asset-kit": "github:poeticmatter/AssetKit#v0.3.0",
     "html-to-image": "^1.11.13",
     "jszip": "^3.10.1",
     "lucide-react": "^0.575.0",

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Download, Package, LayoutGrid, Circle, Flag, Hourglass, Star, ArrowRight, Triangle, Gavel } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import JSZip from 'jszip';
-import { exportForTTS } from 'asset-kit';
+import { exportForTTS, buildAssetFilename } from 'asset-kit';
 import {
   CC_COLOR_HEX,
   CC_COLOR_DEEP_HEX,
@@ -671,8 +671,11 @@ export default function ColonyCollapseTracksAssets() {
   // game's own #0B1220 board color (see renderNodeToPng) - asset-kit's export
   // helpers only offer transparent-or-#000000, so those stay on the local
   // html-to-image path to keep the exact background byte-for-byte.
-  const exportNode = (nodeId, fileName, transparent = false, pixelRatio = EXPORT_PIXEL_RATIO) =>
+  // `filenameParts` / `zipFilenameParts` are buildAssetFilename's input,
+  // resolved when the export runs so the date stamp is the export day.
+  const exportNode = (nodeId, filenameParts, transparent = false, pixelRatio = EXPORT_PIXEL_RATIO) =>
     runExport(nodeId, async () => {
+      const fileName = buildAssetFilename(filenameParts);
       if (transparent) {
         const node = document.getElementById(nodeId);
         if (!node) throw new Error(`Export node "${nodeId}" is not mounted`);
@@ -683,15 +686,15 @@ export default function ColonyCollapseTracksAssets() {
       triggerDownload(dataUrl, fileName);
     });
 
-  const exportZip = (label, entries, zipFileName) =>
+  const exportZip = (label, entries, zipFilenameParts) =>
     runExport(label, async () => {
       const zip = new JSZip();
       for (const entry of entries) {
         const dataUrl = await renderNodeToPng(entry.nodeId, { transparent: entry.transparent });
-        zip.file(entry.fileName, dataUrl.split(',')[1], { base64: true });
+        zip.file(buildAssetFilename(entry.filenameParts), dataUrl.split(',')[1], { base64: true });
       }
       const blob = await zip.generateAsync({ type: 'blob' });
-      triggerDownload(URL.createObjectURL(blob), zipFileName);
+      triggerDownload(URL.createObjectURL(blob), buildAssetFilename(zipFilenameParts));
     });
 
   const assetTabs = [
@@ -704,42 +707,42 @@ export default function ColonyCollapseTracksAssets() {
     ...CC_PLAYER_COLOR_ORDER.map((color) => ({
       key: `disc-${color}`,
       nodeId: `cc-token-disc-${color}`,
-      fileName: `ColonyCollapse_Token_Disc_${color}.png`,
+      filenameParts: { group: 'Token', modifier: `Disc-${color}` },
       label: `${color} disc`,
       transparent: true
     })),
     ...CC_PLAYER_COLOR_ORDER.map((color) => ({
       key: `control-${color}`,
       nodeId: `cc-token-control-${color}`,
-      fileName: `ColonyCollapse_Token_Control_${color}.png`,
+      filenameParts: { group: 'Token', modifier: `Control-${color}` },
       label: `${color} control`,
       transparent: true
     })),
     {
       key: 'round-marker',
       nodeId: 'cc-token-round-marker',
-      fileName: 'ColonyCollapse_Token_RoundMarker.png',
+      filenameParts: { group: 'Token', modifier: 'RoundMarker' },
       label: 'Round marker',
       transparent: true
     },
     {
       key: 'start-player',
       nodeId: 'cc-token-start-player',
-      fileName: 'ColonyCollapse_Token_StartPlayer.png',
+      filenameParts: { group: 'Token', modifier: 'StartPlayer' },
       label: 'Start player token',
       transparent: true
     },
     {
       key: 'shared-pawn',
       nodeId: 'cc-token-shared-pawn',
-      fileName: 'ColonyCollapse_Token_SharedPawn.png',
+      filenameParts: { group: 'Token', modifier: 'SharedPawn' },
       label: 'Shared pawn',
       transparent: true
     },
     {
       key: 'dial-token',
       nodeId: 'cc-token-dial',
-      fileName: 'ColonyCollapse_Token_Dial.png',
+      filenameParts: { group: 'Token', modifier: 'Dial' },
       label: 'Dial token',
       transparent: true
     }
@@ -748,7 +751,7 @@ export default function ColonyCollapseTracksAssets() {
   const boardEntries = CC_PLAYER_COLOR_ORDER.map((color) => ({
     key: `board-${color}`,
     nodeId: `cc-player-board-${color}`,
-    fileName: `ColonyCollapse_PlayerBoard_${color}.png`,
+    filenameParts: { group: 'PlayerBoard', modifier: color },
     label: `${color} board`
   }));
 
@@ -800,7 +803,7 @@ export default function ColonyCollapseTracksAssets() {
           <section>
             <div className="flex flex-wrap items-center gap-3 mb-6 no-print">
               <button
-                onClick={() => exportZip('tokens-zip', tokenEntries, 'ColonyCollapse_Tokens.zip')}
+                onClick={() => exportZip('tokens-zip', tokenEntries, { group: 'Tokens', extension: 'zip' })}
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm flex items-center gap-2 cursor-pointer transition-colors"
               >
@@ -819,7 +822,7 @@ export default function ColonyCollapseTracksAssets() {
                     <PlayerDiscSVG playerColor={color} icon="bee" />
                   </div>
                   <button
-                    onClick={() => exportNode(`cc-token-disc-${color}`, `ColonyCollapse_Token_Disc_${color}.png`, true)}
+                    onClick={() => exportNode(`cc-token-disc-${color}`, { group: 'Token', modifier: `Disc-${color}` }, true)}
                     disabled={isBusy}
                     className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                   >
@@ -837,7 +840,7 @@ export default function ColonyCollapseTracksAssets() {
                     <PlayerDiscSVG playerColor={color} icon="flag" />
                   </div>
                   <button
-                    onClick={() => exportNode(`cc-token-control-${color}`, `ColonyCollapse_Token_Control_${color}.png`, true)}
+                    onClick={() => exportNode(`cc-token-control-${color}`, { group: 'Token', modifier: `Control-${color}` }, true)}
                     disabled={isBusy}
                     className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                   >
@@ -854,7 +857,7 @@ export default function ColonyCollapseTracksAssets() {
                   <RoundMarkerSVG />
                 </div>
                 <button
-                  onClick={() => exportNode('cc-token-round-marker', 'ColonyCollapse_Token_RoundMarker.png', true)}
+                  onClick={() => exportNode('cc-token-round-marker', { group: 'Token', modifier: 'RoundMarker' }, true)}
                   disabled={isBusy}
                   className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                 >
@@ -866,7 +869,7 @@ export default function ColonyCollapseTracksAssets() {
                   <StartPlayerMarkerSVG />
                 </div>
                 <button
-                  onClick={() => exportNode('cc-token-start-player', 'ColonyCollapse_Token_StartPlayer.png', true)}
+                  onClick={() => exportNode('cc-token-start-player', { group: 'Token', modifier: 'StartPlayer' }, true)}
                   disabled={isBusy}
                   className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                 >
@@ -878,7 +881,7 @@ export default function ColonyCollapseTracksAssets() {
                   <SharedPawnSVG />
                 </div>
                 <button
-                  onClick={() => exportNode('cc-token-shared-pawn', 'ColonyCollapse_Token_SharedPawn.png', true)}
+                  onClick={() => exportNode('cc-token-shared-pawn', { group: 'Token', modifier: 'SharedPawn' }, true)}
                   disabled={isBusy}
                   className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                 >
@@ -890,7 +893,7 @@ export default function ColonyCollapseTracksAssets() {
                   <DialTokenSVG size={TOKEN_SIZE} />
                 </div>
                 <button
-                  onClick={() => exportNode('cc-token-dial', 'ColonyCollapse_Token_Dial.png', true)}
+                  onClick={() => exportNode('cc-token-dial', { group: 'Token', modifier: 'Dial' }, true)}
                   disabled={isBusy}
                   className="w-full px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-[11px] font-bold text-slate-300 cursor-pointer transition-colors no-print"
                 >
@@ -907,7 +910,7 @@ export default function ColonyCollapseTracksAssets() {
             <div className="flex flex-wrap items-center gap-3 mb-6 no-print">
               <button
                 onClick={() =>
-                  exportNode('cc-tracks-board', 'ColonyCollapse_TracksBoard.png', false, TRACKS_BOARD_EXPORT_PIXEL_RATIO)
+                  exportNode('cc-tracks-board', { group: 'TracksBoard' }, false, TRACKS_BOARD_EXPORT_PIXEL_RATIO)
                 }
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm flex items-center gap-2 cursor-pointer transition-colors"
@@ -933,7 +936,7 @@ export default function ColonyCollapseTracksAssets() {
           <section>
             <div className="flex flex-wrap items-center gap-3 mb-6 no-print">
               <button
-                onClick={() => exportZip('boards-zip', boardEntries, 'ColonyCollapse_PlayerBoards.zip')}
+                onClick={() => exportZip('boards-zip', boardEntries, { group: 'PlayerBoards', extension: 'zip' })}
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-sm flex items-center gap-2 cursor-pointer transition-colors"
               >
@@ -951,7 +954,7 @@ export default function ColonyCollapseTracksAssets() {
                     <PlayerBoardSVG playerColor={color} />
                   </div>
                   <button
-                    onClick={() => exportNode(`cc-player-board-${color}`, `ColonyCollapse_PlayerBoard_${color}.png`)}
+                    onClick={() => exportNode(`cc-player-board-${color}`, { group: 'PlayerBoard', modifier: color })}
                     disabled={isBusy}
                     className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-xs font-bold text-slate-300 flex items-center gap-1.5 cursor-pointer no-print transition-colors"
                   >

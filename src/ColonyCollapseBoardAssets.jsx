@@ -5,7 +5,7 @@ import {
   Edit3, Copy, TrendingUp, Redo, Circle, Triangle, Compass, Eye
 } from 'lucide-react';
 import { toPng } from 'html-to-image';
-import { exportForTTS, buildAssetFilename } from 'asset-kit';
+import { exportForTTS, buildAssetFilename, FILENAME_VARIANTS } from 'asset-kit';
 import JSZip from 'jszip';
 import ColonyCollapseAssets from './ColonyCollapseAssets.jsx';
 import ColonyCollapseTracksAssets, {
@@ -1505,18 +1505,20 @@ const renderNodeToPng = async (nodeId, { transparent = true } = {}) => {
   });
 };
 
+// Filenames are built at export time, not module load, because
+// buildAssetFilename stamps them with the current date.
 const tileFileName = (tile, side) => {
   const face = side === 'A' ? tile.colorA : tile.colorB;
   const back = side === 'A' ? tile.colorB : tile.colorA;
   const index = String(tile.id).padStart(2, '0');
-  return `ColonyCollapse_Tile_${index}_${face}-over-${back}.png`;
+  return buildAssetFilename({ group: 'Tile', variant: FILENAME_VARIANTS.tts, modifier: `${index}-${face}-over-${back}` });
 };
 
 const actionFileName = (action, side) =>
-  `ColonyCollapse_Action_${action.name}_${side === 'upgraded' ? 'Upgraded' : 'Basic'}.png`;
+  buildAssetFilename({ group: 'ActionTile', modifier: `${action.name}-${side === 'upgraded' ? 'Upgraded' : 'Basic'}` });
 
-const actionUpgradeMarkerFileName = (action) => `ColonyCollapse_ActionUpgradeMarker_${action.name}.png`;
-const ACTION_UPGRADE_MARKER_BACK_FILENAME = 'ColonyCollapse_ActionUpgradeMarker_Back.png';
+const actionUpgradeMarkerFileName = (action) => buildAssetFilename({ group: 'UpgradeMarker', modifier: action.name });
+const actionUpgradeMarkerBackFileName = () => buildAssetFilename({ group: 'UpgradeMarker', modifier: 'Back' });
 
 // --- 10. MAIN COMPONENT -----------------------------------------------------
 export default function ColonyCollapseBoardAssets() {
@@ -1630,26 +1632,26 @@ export default function ColonyCollapseBoardAssets() {
   const exportActionUpgradeMarkerBack = () =>
     runExport('action-upgrade-back', async () => {
       const dataUrl = await renderNodeToPng('cc-action-upgrade-back-export', { transparent: false });
-      triggerDownload(dataUrl, ACTION_UPGRADE_MARKER_BACK_FILENAME);
+      triggerDownload(dataUrl, actionUpgradeMarkerBackFileName());
     });
 
   const exportBoard = () =>
     runExport('board', async () => {
       const dataUrl = await renderNodeToPng('cc-board-export', { transparent: false });
-      const fileName = isTriangleBoard ? 'ColonyCollapse_Board_7across_Triangles.png' : 'ColonyCollapse_Board_7across.png';
-      triggerDownload(dataUrl, fileName);
+      const modifier = isTriangleBoard ? 'Triangles' : undefined;
+      triggerDownload(dataUrl, buildAssetFilename({ group: 'Board', modifier }));
     });
 
   const exportDisplayBoard = () =>
     runExport('display', async () => {
       const dataUrl = await renderNodeToPng('cc-display-export', { transparent: false });
-      triggerDownload(dataUrl, 'ColonyCollapse_TileDisplay.png');
+      triggerDownload(dataUrl, buildAssetFilename({ group: 'TileDisplay' }));
     });
 
   const exportDisplayBoardWithDial = () =>
     runExport('display-with-dial', async () => {
       const dataUrl = await renderNodeToPng('cc-display-with-dial-export', { transparent: false });
-      triggerDownload(dataUrl, `ColonyCollapse_TileDisplay_WithDial_${displayDialColor}.png`);
+      triggerDownload(dataUrl, buildAssetFilename({ group: 'TileDisplay', modifier: `Dial-${displayDialColor}` }));
     });
 
   const exportDialToken = () =>
@@ -1658,15 +1660,16 @@ export default function ColonyCollapseBoardAssets() {
       const node = document.getElementById(nodeId);
       if (!node) throw new Error(`Export node "${nodeId}" is not mounted`);
       await exportForTTS(node, {
-        filename: buildAssetFilename({ game: 'ColonyCollapse', group: 'Token', variant: 'Dial' }),
+        filename: buildAssetFilename({ group: 'DialToken', variant: FILENAME_VARIANTS.tts }),
         transparent: true
       });
     });
 
-  const exportSheet = (nodeId, fileName, transparent = false) =>
+  // `filenameParts` is buildAssetFilename's input, resolved when the export runs.
+  const exportSheet = (nodeId, filenameParts, transparent = false) =>
     runExport(nodeId, async () => {
       const dataUrl = await renderNodeToPng(nodeId, { transparent });
-      triggerDownload(dataUrl, fileName);
+      triggerDownload(dataUrl, buildAssetFilename(filenameParts));
     });
 
   const exportAllTilesZip = () =>
@@ -1680,7 +1683,7 @@ export default function ColonyCollapseBoardAssets() {
         }
       }
       const blob = await zip.generateAsync({ type: 'blob' });
-      triggerDownload(URL.createObjectURL(blob), 'ColonyCollapse_Tiles_30_faces.zip');
+      triggerDownload(URL.createObjectURL(blob), buildAssetFilename({ group: 'Tiles', extension: 'zip' }));
     });
 
   const exportAllActionsZip = () =>
@@ -1696,7 +1699,7 @@ export default function ColonyCollapseBoardAssets() {
         }
       }
       const blob = await zip.generateAsync({ type: 'blob' });
-      triggerDownload(URL.createObjectURL(blob), 'ColonyCollapse_ActionTiles_14_faces.zip');
+      triggerDownload(URL.createObjectURL(blob), buildAssetFilename({ group: 'ActionTiles', extension: 'zip' }));
     });
 
   const exportAllActionUpgradeMarkersZip = () =>
@@ -1710,9 +1713,9 @@ export default function ColonyCollapseBoardAssets() {
         folder.file(actionUpgradeMarkerFileName(action), dataUrl.split(',')[1], { base64: true });
       }
       const backDataUrl = await renderNodeToPng('cc-action-upgrade-back-export', { transparent: false });
-      folder.file(ACTION_UPGRADE_MARKER_BACK_FILENAME, backDataUrl.split(',')[1], { base64: true });
+      folder.file(actionUpgradeMarkerBackFileName(), backDataUrl.split(',')[1], { base64: true });
       const blob = await zip.generateAsync({ type: 'blob' });
-      triggerDownload(URL.createObjectURL(blob), 'ColonyCollapse_ActionUpgradeMarkers_7.zip');
+      triggerDownload(URL.createObjectURL(blob), buildAssetFilename({ group: 'UpgradeMarkers', extension: 'zip' }));
     });
 
   const isBusy = busyLabel !== null;
@@ -1833,14 +1836,14 @@ export default function ColonyCollapseBoardAssets() {
                 <Package className="w-4 h-4" /> All 30 faces (.zip)
               </button>
               <button
-                onClick={() => exportSheet('cc-tile-sheet-a', 'ColonyCollapse_TTS_TileSheet_SideA.png', true)}
+                onClick={() => exportSheet('cc-tile-sheet-a', { group: 'TileSheet', variant: FILENAME_VARIANTS.tts, modifier: 'SideA' }, true)}
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"
               >
                 <FileImage className="w-4 h-4" /> Sheet — side A
               </button>
               <button
-                onClick={() => exportSheet('cc-tile-sheet-b', 'ColonyCollapse_TTS_TileSheet_SideB.png', true)}
+                onClick={() => exportSheet('cc-tile-sheet-b', { group: 'TileSheet', variant: FILENAME_VARIANTS.tts, modifier: 'SideB' }, true)}
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"
               >
@@ -2172,7 +2175,7 @@ export default function ColonyCollapseBoardAssets() {
               </button>
               <button
                 onClick={() =>
-                  exportSheet('cc-action-sheet', 'ColonyCollapse_ActionTiles_Sheet.png', true)
+                  exportSheet('cc-action-sheet', { group: 'ActionTileSheet' }, true)
                 }
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"
@@ -2181,7 +2184,7 @@ export default function ColonyCollapseBoardAssets() {
               </button>
               <button
                 onClick={() =>
-                  exportSheet('cc-action-reference', 'ColonyCollapse_ActionTiles_Reference.png')
+                  exportSheet('cc-action-reference', { group: 'ActionReference' })
                 }
                 disabled={isBusy}
                 className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-amber-400 font-bold text-sm flex items-center gap-2 cursor-pointer border border-slate-700 transition-colors"

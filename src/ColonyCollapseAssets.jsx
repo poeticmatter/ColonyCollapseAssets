@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { Download, Printer, LayoutGrid, Eye, Search, Sparkles, Filter, RefreshCw, Zap, RotateCw, CheckCircle2, Copy, Hexagon, Shield, Layers, HelpCircle, FileImage, Upload, AlertTriangle } from 'lucide-react';
 import { toPng } from 'html-to-image';
-import { exportForTTS, exportForScreentop, buildAssetFilename } from 'asset-kit';
+import { exportForTTS, exportForScreentop, buildAssetFilename, FILENAME_VARIANTS } from 'asset-kit';
 import {
   CC_COLOR_HEX,
   CC_COLOR_DEEP_HEX,
@@ -418,7 +418,10 @@ export default function ColonyCollapseAssets() {
     toPng(cardNode, { cacheBust: true, quality: 0.95 })
       .then((dataUrl) => {
         const link = document.createElement('a');
-        link.download = `ColonyCollapse_${card.title.replace(/\s+/g, '_')}_${card.colors.join('-')}_${card.copyLabel.replace(/s+/g, '')}.png`;
+        link.download = buildAssetFilename({
+          group: 'Card',
+          modifier: [card.title, card.colors.join('-'), card.copyLabel].map((part) => part.replace(/\s+/g, '')).join('-')
+        });
         link.href = dataUrl;
         link.click();
       })
@@ -435,7 +438,7 @@ export default function ColonyCollapseAssets() {
     toPng(node, { cacheBust: true, quality: 0.98 })
       .then((dataUrl) => {
         const link = document.createElement('a');
-        link.download = 'ColonyCollapse_CardBack.png';
+        link.download = buildAssetFilename({ group: 'CardBack' });
         link.href = dataUrl;
         link.click();
       })
@@ -448,7 +451,7 @@ export default function ColonyCollapseAssets() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.download = 'ColonyCollapse_Cards.csv';
+    link.download = buildAssetFilename({ group: 'Cards', extension: 'csv' });
     link.href = url;
     link.click();
     URL.revokeObjectURL(url);
@@ -481,7 +484,7 @@ export default function ColonyCollapseAssets() {
     if (!node) return;
 
     exportForTTS(node, {
-      filename: buildAssetFilename({ game: 'ColonyCollapse', group: 'Cards', variant: 'TTS_DeckSheet_10cols' }),
+      filename: buildAssetFilename({ group: 'Cards', variant: FILENAME_VARIANTS.tts }),
     }).catch((err) => console.error('Export error:', err));
   };
 
@@ -494,7 +497,7 @@ export default function ColonyCollapseAssets() {
     if (!node) return;
 
     exportForScreentop(node, {
-      filename: buildAssetFilename({ game: 'ColonyCollapse', group: 'Cards', variant: `Screentop_${deck.length}Fronts` }),
+      filename: buildAssetFilename({ group: 'Cards', variant: FILENAME_VARIANTS.screentop }),
       pixelRatio: SCREENTOP_PIXEL_RATIO,
     }).catch((err) => console.error('Export error:', err));
   };
